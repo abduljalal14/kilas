@@ -1,0 +1,536 @@
+// Main Dashboard Logic
+window.app = {
+    apiKey: localStorage.getItem('apiKey'),
+
+    init: function () {
+        if (!this.apiKey) {
+            window.location.href = '/';
+            return;
+        }
+
+        this.bindEvents();
+        this.loadSessions();
+
+        // Populate stats periodically
+        setInterval(this.updateStats.bind(this), 5000);
+        this.updateStats();
+    },
+
+    bindEvents: function () {
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.removeItem('apiKey');
+            window.location.href = '/';
+        });
+
+        // New Session
+        document.getElementById('btnNewSession').addEventListener('click', () => {
+            this.showNewSessionModal();
+        });
+
+        // Tabs (API Tester / Quick Send / Webhook)
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.tab;
+                // Only handle left column tabs (api-tester, quick-send, webhook)
+                if (tab === 'api-tester' || tab === 'quick-send' || tab === 'webhook') {
+                    document.querySelectorAll('.tab-btn').forEach(b => {
+                        if (b.dataset.tab === 'api-tester' || b.dataset.tab === 'quick-send' || b.dataset.tab === 'webhook') {
+                            b.classList.remove('active');
+                        }
+                    });
+                    document.querySelectorAll('.tab-content').forEach(c => {
+                        if (c.id === 'api-tester' || c.id === 'quick-send' || c.id === 'webhook') {
+                            c.classList.remove('active');
+                        }
+                    });
+                    btn.classList.add('active');
+                    document.getElementById(tab).classList.add('active');
+                }
+            });
+        });
+
+        // Events Tabs (Live Events / Live Webhook Events)
+        document.querySelectorAll('.events-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.eventsTab;
+                document.querySelectorAll('.events-tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.events-tab-content').forEach(c => c.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById(tab).classList.add('active');
+            });
+        });
+
+        // Modal Close
+        document.querySelector('.close-modal').addEventListener('click', () => {
+            document.getElementById('qrModal').classList.remove('visible');
+        });
+
+        // Clear Logs - works with active tab
+        document.getElementById('btnClearCurrentLog').addEventListener('click', () => {
+            const activeTab = document.querySelector('.events-tab-content.active');
+            if (activeTab.id === 'live-events') {
+                document.getElementById('eventLog').innerHTML = '';
+                sessionStorage.removeItem('kirimkan_events');
+            } else if (activeTab.id === 'live-webhook') {
+                document.getElementById('webhookLog').innerHTML = '';
+                sessionStorage.removeItem('kirimkan_webhook_logs');
+            }
+        });
+
+        // Quick Send
+        document.getElementById('quickSendForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const sessionId = document.getElementById('qsSession').value;
+            const chatId = document.getElementById('qsPhone').value;
+            const text = document.getElementById('qsMessage').value;
+
+            if (!sessionId) return alert('Please select a session');
+
+            try {
+                const btn = e.target.querySelector('button');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+                btn.disabled = true;
+
+                const res = await this.apiCall('/api/messages/send-text', 'POST', { sessionId, chatId, text });
+
+                if (res.success) {
+                    this.showAlert('Message sent successfully!', 'success');
+                    document.getElementById('qsMessage').value = '';
+                } else {
+                    this.showAlert('Failed: ' + res.message, 'error');
+                }
+
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            } catch (err) {
+                this.showAlert('Error sending message: ' + err.message, 'error');
+            }
+        });
+
+        // Enter key support for new session modal
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const newSessionModal = document.getElementById('newSessionModal');
+                if (newSessionModal.classList.contains('visible')) {
+                    this.confirmNewSession();
+                }
+            }
+            if (e.key === 'Escape') {
+                this.closeNewSessionModal();
+                this.closeDeleteModal();
+            }
+        });
+    },
+
+    apiCall: async function (url, method = 'GET', body = null) {
+        const options = {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': this.apiKey
+            }
+        };
+        if (body) options.body = JSON.stringify(body);
+
+        const res = await fetch(url, options);
+        if (res.status === 401) {
+            window.location.href = '/';
+            return;
+        }
+        return await res.json();
+    },
+
+    loadSessions: async function () {
+        const res = await this.apiCall('/api/sessions');
+        if (res && res.success) {
+            const list = document.getElementById('sessionsList');
+            const qsSelect = document.getElementById('qsSession');
+            const apiSessionSelect = document.getElementById('apiSession');
+
+            if (res.data.length === 0) {
+                list.innerHTML = '<div class="empty-state">No sessions created yet.</div>';
+                qsSelect.innerHTML = '<option value="">Select session...</option>';
+                apiSessionSelect.innerHTML = '<option value="">Select session...</option>';
+                return;
+            }
+
+            // Build Sessions List (removed connect button, only QR and Delete)
+            list.innerHTML = res.data.map(session => `
+                <div class="session-row" data-id="${session.id}">
+                    <div class="session-avatar">
+                        <i class="fab fa-whatsapp"></i>
+                    </div>
+                    <div class="session-details">
+                        <span class="session-name">${session.id}</span>
+                        <span class="session-id">${session.user ? session.user.id.split(':')[0] : 'Not connected'}</span>
+                    </div>
+                    <span class="session-status status-${session.status}">${session.status}</span>
+                    <div class="session-actions">
+                        <button class="btn btn-icon" onclick="window.app.showQR('${session.id}')" title="Scan QR">
+                            <i class="fas fa-qrcode"></i>
+                        </button>
+                        <button class="btn btn-icon" onclick="window.app.deleteSession('${session.id}')" title="Delete" style="color:var(--accent-danger)">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+
+            // Build Quick Send Select (only connected sessions)
+            const connected = res.data.filter(s => s.status === 'connected');
+            qsSelect.innerHTML = '<option value="">Select session...</option>' +
+                connected.map(s => `<option value="${s.id}">${s.id}</option>`).join('');
+
+            // Build API Tester Session Select (all sessions)
+            apiSessionSelect.innerHTML = '<option value="">Select session...</option>' +
+                res.data.map(s => `<option value="${s.id}">${s.id} (${s.status})</option>`).join('');
+
+            this.updateStatsData(res.data);
+        }
+    },
+
+    createSession: async function (sessionId) {
+        try {
+            await this.apiCall('/api/sessions/create', 'POST', { sessionId });
+            this.loadSessions();
+            this.logEvent('info', 'System', `Session ${sessionId} created`);
+        } catch (err) {
+            alert('Failed to create session: ' + err.message);
+        }
+    },
+
+    deleteSession: function (sessionId) {
+        this.sessionToDelete = sessionId;
+        document.getElementById('deleteSessionName').textContent = sessionId;
+        document.getElementById('deleteModal').classList.add('visible');
+    },
+
+    confirmDelete: async function () {
+        const sessionId = this.sessionToDelete;
+        this.closeDeleteModal();
+
+        try {
+            const res = await this.apiCall(`/api/sessions/${sessionId}`, 'DELETE');
+            if (res.success) {
+                this.loadSessions();
+                this.logEvent('info', 'System', `Session ${sessionId} deleted`);
+            } else {
+                this.showAlert('Failed to delete session: ' + res.message, 'error');
+            }
+        } catch (err) {
+            this.showAlert('Error deleting session: ' + err.message, 'error');
+        }
+    },
+
+    closeDeleteModal: function () {
+        document.getElementById('deleteModal').classList.remove('visible');
+        this.sessionToDelete = null;
+    },
+
+    showNewSessionModal: function () {
+        document.getElementById('newSessionModal').classList.add('visible');
+        setTimeout(() => {
+            document.getElementById('newSessionInput').focus();
+        }, 100);
+    },
+
+    closeNewSessionModal: function () {
+        document.getElementById('newSessionModal').classList.remove('visible');
+        document.getElementById('newSessionInput').value = '';
+    },
+
+    confirmNewSession: function () {
+        const sessionId = document.getElementById('newSessionInput').value.trim();
+        if (!sessionId) {
+            this.showAlert('Please enter a session name', 'warning');
+            return;
+        }
+        this.closeNewSessionModal();
+        this.createSession(sessionId);
+    },
+
+    showAlert: function (message, type = 'info') {
+        // Simple toast notification
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        toast.style.cssText = `
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            background: ${type === 'error' ? 'var(--accent-danger)' : type === 'warning' ? 'var(--accent-warning)' : 'var(--accent-success)'};
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 10000;
+            animation: slideIn 0.3s ease;
+        `;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            toast.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    },
+
+    showQR: async function (sessionId) {
+        const modal = document.getElementById('qrModal');
+        modal.classList.add('visible');
+        modal.dataset.session = sessionId;
+
+        const qrImg = document.getElementById('qrImage');
+        const spinner = document.getElementById('qrSpinner');
+
+        qrImg.style.display = 'none';
+        qrImg.src = '';
+        spinner.style.display = 'block';
+
+        // Subscribe to this session's events via WebSocket
+        if (window.socket) {
+            window.socket.emit('subscribe:session', sessionId);
+        }
+
+        // Trigger session creation/reconnection which will emit QR
+        try {
+            await this.apiCall('/api/sessions/create', 'POST', { sessionId });
+            this.logEvent('info', sessionId, 'Waiting for QR code...');
+        } catch (err) {
+            console.error('Error creating session:', err);
+            spinner.style.display = 'none';
+            alert('Failed to create session. Check console for details.');
+        }
+    },
+
+    updateStats: async function () {
+        // Stats updated via loadSessions
+    },
+
+    updateStatsData: function (sessions) {
+        document.getElementById('statTotal').textContent = sessions.length;
+        document.getElementById('statConnected').textContent = sessions.filter(s => s.status === 'connected').length;
+        document.getElementById('statDisconnected').textContent = sessions.filter(s => s.status !== 'connected').length;
+    },
+
+    logEvent: function (type, source, message) {
+        const log = document.getElementById('eventLog');
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        const time = new Date().toLocaleTimeString();
+        entry.innerHTML = `
+            <span class="log-time">${time}</span>
+            <span class="log-type type-${type}">${type}</span>
+            <span class="log-message"><strong>[${source}]</strong> ${message}</span>
+        `;
+        log.prepend(entry);
+
+        // Keep only last 100 entries in DOM
+        while (log.children.length > 100) {
+            log.removeChild(log.lastChild);
+        }
+
+        // Save to sessionStorage
+        this.saveEventsToStorage();
+    },
+
+    saveEventsToStorage: function () {
+        const log = document.getElementById('eventLog');
+        const events = [];
+        Array.from(log.children).slice(0, 100).forEach(entry => {
+            events.push(entry.outerHTML);
+        });
+        sessionStorage.setItem('kirimkan_events', JSON.stringify(events));
+    },
+
+    loadEventsFromStorage: function () {
+        const stored = sessionStorage.getItem('kirimkan_events');
+        if (stored) {
+            try {
+                const events = JSON.parse(stored);
+                const log = document.getElementById('eventLog');
+                log.innerHTML = events.join('');
+            } catch (e) {
+                console.error('Failed to load events from storage:', e);
+            }
+        }
+    },
+
+    // Webhook functions
+    loadWebhookConfig: async function () {
+        const sessionSelect = document.getElementById('webhookSession');
+        const webhookUrlInput = document.getElementById('webhookUrl');
+
+        if (!sessionSelect || !webhookUrlInput) return;
+
+        // Session change - load webhook config and selected events
+        sessionSelect.addEventListener('change', async (e) => {
+            const sessionId = e.target.value;
+            if (!sessionId) {
+                webhookUrlInput.value = '';
+                // Uncheck all events
+                document.querySelectorAll('input[name="webhookEvent"]').forEach(cb => cb.checked = false);
+                this.updateCheckAllState();
+                return;
+            }
+
+            try {
+                const res = await this.apiCall(`/api/webhook/${sessionId}`);
+                if (res.success && res.webhookUrl) {
+                    webhookUrlInput.value = res.webhookUrl;
+
+                    // Load selected events
+                    const selectedEvents = res.events || [];
+                    document.querySelectorAll('input[name="webhookEvent"]').forEach(checkbox => {
+                        checkbox.checked = selectedEvents.includes(checkbox.value);
+                    });
+                    this.updateCheckAllState();
+                } else {
+                    webhookUrlInput.value = '';
+                    // Uncheck all events
+                    document.querySelectorAll('input[name="webhookEvent"]').forEach(cb => cb.checked = false);
+                    this.updateCheckAllState();
+                }
+            } catch (err) {
+                console.error('Failed to load webhook config:', err);
+            }
+        });
+
+        // Check All Events
+        document.getElementById('checkAllEvents').addEventListener('change', (e) => {
+            const checked = e.target.checked;
+            document.querySelectorAll('input[name="webhookEvent"]').forEach(checkbox => {
+                checkbox.checked = checked;
+            });
+        });
+
+        // Individual checkboxes - update Check All state
+        document.querySelectorAll('input[name="webhookEvent"]').forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                this.updateCheckAllState();
+            });
+        });
+
+        // Save webhook
+        document.getElementById('btnSaveWebhook').addEventListener('click', async () => {
+            const sessionId = sessionSelect.value;
+            const webhookUrl = webhookUrlInput.value.trim();
+
+            if (!sessionId) {
+                this.showAlert('Please select a session', 'warning');
+                return;
+            }
+            if (!webhookUrl) {
+                this.showAlert('Please enter a webhook URL', 'warning');
+                return;
+            }
+
+            // Get selected events
+            const selectedEvents = Array.from(document.querySelectorAll('input[name="webhookEvent"]:checked'))
+                .map(cb => cb.value);
+
+            try {
+                const res = await this.apiCall(`/api/webhook/${sessionId}`, 'POST', {
+                    webhookUrl,
+                    events: selectedEvents
+                });
+                if (res.success) {
+                    this.showAlert(`Webhook saved with ${selectedEvents.length} events!`, 'success');
+                    this.logEvent('info', 'Webhook', `Configured for ${sessionId} with ${selectedEvents.length} events`);
+                } else {
+                    this.showAlert('Failed to save webhook: ' + res.message, 'error');
+                }
+            } catch (err) {
+                this.showAlert('Error saving webhook: ' + err.message, 'error');
+            }
+        });
+
+        // Test webhook
+        document.getElementById('btnTestWebhook').addEventListener('click', async () => {
+            const sessionId = sessionSelect.value;
+            if (!sessionId) {
+                this.showAlert('Please select a session', 'warning');
+                return;
+            }
+
+            try {
+                const res = await this.apiCall(`/api/webhook/${sessionId}/test`, 'POST');
+                if (res.success) {
+                    this.showAlert('Test webhook sent! Check your webhook receiver.', 'success');
+                    this.logEvent('info', 'Webhook', `Test sent for ${sessionId}`);
+                } else {
+                    this.showAlert('Failed to test webhook: ' + res.message, 'error');
+                }
+            } catch (err) {
+                this.showAlert('Error testing webhook: ' + err.message, 'error');
+            }
+        });
+
+        // Remove webhook
+        document.getElementById('btnRemoveWebhook').addEventListener('click', async () => {
+            const sessionId = sessionSelect.value;
+            if (!sessionId) {
+                this.showAlert('Please select a session', 'warning');
+                return;
+            }
+
+            if (confirm('Remove webhook configuration for this session?')) {
+                try {
+                    const res = await this.apiCall(`/api/webhook/${sessionId}`, 'DELETE');
+                    if (res.success) {
+                        webhookUrlInput.value = '';
+                        // Uncheck all events
+                        document.querySelectorAll('input[name="webhookEvent"]').forEach(cb => cb.checked = false);
+                        this.updateCheckAllState();
+                        this.showAlert('Webhook removed successfully!', 'success');
+                        this.logEvent('info', 'Webhook', `Removed for ${sessionId}`);
+                    } else {
+                        this.showAlert('Failed to remove webhook: ' + res.message, 'error');
+                    }
+                } catch (err) {
+                    this.showAlert('Error removing webhook: ' + err.message, 'error');
+                }
+            }
+        });
+    },
+
+    updateCheckAllState: function () {
+        const allCheckboxes = document.querySelectorAll('input[name="webhookEvent"]');
+        const checkedCheckboxes = document.querySelectorAll('input[name="webhookEvent"]:checked');
+        const checkAllCheckbox = document.getElementById('checkAllEvents');
+
+        if (!checkAllCheckbox) return;
+
+        if (checkedCheckboxes.length === 0) {
+            checkAllCheckbox.checked = false;
+            checkAllCheckbox.indeterminate = false;
+        } else if (checkedCheckboxes.length === allCheckboxes.length) {
+            checkAllCheckbox.checked = true;
+            checkAllCheckbox.indeterminate = false;
+        } else {
+            checkAllCheckbox.checked = false;
+            checkAllCheckbox.indeterminate = true;
+        }
+    },
+
+    populateWebhookSessions: function () {
+        const webhookSelect = document.getElementById('webhookSession');
+        const apiSessionSelect = document.getElementById('apiSession');
+
+        if (webhookSelect && apiSessionSelect) {
+            // Copy options from API session select
+            webhookSelect.innerHTML = apiSessionSelect.innerHTML;
+        }
+    }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    window.app.init();
+    window.app.loadEventsFromStorage();
+    window.app.loadWebhookConfig();
+
+    // Populate webhook sessions after sessions load
+    setTimeout(() => {
+        window.app.populateWebhookSessions();
+    }, 1000);
+});

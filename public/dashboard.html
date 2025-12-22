@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kilas - WhatsApp Gateway Dashboard</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Navbar -->
+        <header class="navbar">
+            <div class="brand">
+                <img src="/images/logo.png" alt="Kilas Logo" style="width: 40px; height: 40px; object-fit: contain;">
+                <span>Kilas</span>
+            </div>
+            <div class="nav-actions">
+                <div class="status-indicator" id="wsStatus">
+                    <span class="dot"></span> WebSocket Connected
+                </div>
+                <button id="logoutBtn" class="btn btn-logout">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <!-- Stats Row (Removed Clients card) -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon info">
+                        <i class="fas fa-server"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Total Sessions</h3>
+                        <h2 id="statTotal">0</h2>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon success">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Connected</h3>
+                        <h2 id="statConnected">0</h2>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon warning">
+                        <i class="fas fa-exclamation-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Disconnected</h3>
+                        <h2 id="statDisconnected">0</h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-grid">
+                <!-- Left Column: Sessions & API Tester -->
+                <div class="col-left">
+                    <!-- Sessions Panel -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-list"></i> Sessions</h3>
+                            <button class="btn btn-primary btn-sm" id="btnNewSession">
+                                <i class="fas fa-plus"></i> New Session
+                            </button>
+                        </div>
+                        <div class="card-body no-padding">
+                            <div id="sessionsList" class="sessions-list">
+                                <div class="empty-state">Loading sessions...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tabs Container -->
+                    <div class="card">
+                        <div class="tabs-header">
+                            <button class="tab-btn active" data-tab="api-tester">
+                                <i class="fas fa-code"></i> API Tester
+                            </button>
+                            <button class="tab-btn" data-tab="quick-send">
+                                <i class="fas fa-paper-plane"></i> Quick Send
+                            </button>
+                            <button class="tab-btn" data-tab="webhook">
+                                <i class="fas fa-webhook"></i> Webhook
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <!-- API Tester Tab -->
+                            <div id="api-tester" class="tab-content active">
+                                <div class="form-group">
+                                    <label>Session</label>
+                                    <select id="apiSession" class="form-control">
+                                        <option value="">Select session...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Endpoint</label>
+                                    <select id="apiEndpoint" class="form-control">
+                                        <option value="">Select endpoint...</option>
+                                    </select>
+                                </div>
+
+                                <!-- Upload Method Selector (shows only for image/document endpoints) -->
+                                <div class="form-group" id="uploadMethodGroup" style="display:none;">
+                                    <label>Upload Method</label>
+                                    <div style="display: flex; gap: 1.5rem; margin-top: 0.5rem;">
+                                        <label style="display: flex; align-items: center; cursor: pointer;">
+                                            <input type="radio" name="uploadMethod" value="file" checked
+                                                style="margin-right: 0.5rem; cursor: pointer;">
+                                            <span>File Upload</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; cursor: pointer;">
+                                            <input type="radio" name="uploadMethod" value="base64"
+                                                style="margin-right: 0.5rem; cursor: pointer;">
+                                            <span>Base64</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="form-group" id="fileUploadGroup" style="display:none;">
+                                    <label>Upload File</label>
+                                    <input type="file" id="apiFile" class="form-control"
+                                        accept="image/*,video/*,.pdf,.doc,.docx">
+                                </div>
+
+                                <!-- Base64 Input Group -->
+                                <div class="form-group" id="base64InputGroup" style="display:none;">
+                                    <label>Base64 String</label>
+                                    <textarea id="apiBase64" class="form-control code-editor" rows="6"
+                                        placeholder="Paste base64 string here (with or without data URL prefix)"></textarea>
+                                    <small style="color: var(--text-muted); margin-top: 0.5rem; display: block;">
+                                        <i class="fas fa-info-circle"></i> Supports both formats:
+                                        <code>data:image/jpeg;base64,...</code> or raw base64
+                                    </small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Request Body (JSON)</label>
+                                    <textarea id="apiBody" class="form-control code-editor" rows="10">{}</textarea>
+                                </div>
+                                <div class="form-actions">
+                                    <button id="btnSendRequest" class="btn btn-success">
+                                        <i class="fas fa-play"></i> Send Request
+                                    </button>
+                                </div>
+                                <div class="response-area hidden" id="apiResponseContainer">
+                                    <label>Response</label>
+                                    <pre id="apiResponse"></pre>
+                                </div>
+                            </div>
+
+                            <!-- Quick Send Tab -->
+                            <div id="quick-send" class="tab-content">
+                                <form id="quickSendForm">
+                                    <div class="form-group">
+                                        <label>Session</label>
+                                        <select id="qsSession" class="form-control" required>
+                                            <option value="">Select session...</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Phone Number</label>
+                                        <input type="text" id="qsPhone" class="form-control" placeholder="628123456789"
+                                            required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Message</label>
+                                        <textarea id="qsMessage" class="form-control" rows="5"
+                                            placeholder="Type your message here..." required></textarea>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-paper-plane"></i> Send Message
+                                    </button>
+                                </form>
+                            </div>
+
+                            <!-- Webhook Tab -->
+                            <div id="webhook" class="tab-content">
+                                <div class="form-group">
+                                    <label>Session</label>
+                                    <select id="webhookSession" class="form-control">
+                                        <option value="">Select session...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Webhook URL</label>
+                                    <input type="url" id="webhookUrl" class="form-control"
+                                        placeholder="https://your-webhook-url.com/endpoint">
+                                    <small style="color: var(--text-muted); margin-top: 0.5rem; display: block;">
+                                        Selected events will be sent to this URL
+                                    </small>
+                                </div>
+
+                                <!-- Event Selection -->
+                                <div class="form-group">
+                                    <label style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span>Select Events to Send</span>
+                                        <label
+                                            style="font-size: 0.875rem; color: var(--accent-primary); cursor: pointer; margin: 0;">
+                                            <input type="checkbox" id="checkAllEvents"
+                                                style="margin-right: 0.5rem; cursor: pointer;">
+                                            Check All
+                                        </label>
+                                    </label>
+                                    <div class="webhook-events-grid">
+                                        <label class="event-checkbox">
+                                            <input type="checkbox" name="webhookEvent" value="connection.update">
+                                            <span>Connection Updates</span>
+                                        </label>
+                                        <label class="event-checkbox">
+                                            <input type="checkbox" name="webhookEvent" value="messages.upsert">
+                                            <span>New Messages</span>
+                                        </label>
+                                        <label class="event-checkbox">
+                                            <input type="checkbox" name="webhookEvent" value="messages.update">
+                                            <span>Message Updates</span>
+                                        </label>
+                                        <label class="event-checkbox">
+                                            <input type="checkbox" name="webhookEvent" value="messages.delete">
+                                            <span>Deleted Messages</span>
+                                        </label>
+                                        <label class="event-checkbox">
+                                            <input type="checkbox" name="webhookEvent" value="presence.update">
+                                            <span>User Presence</span>
+                                        </label>
+                                        <label class="event-checkbox">
+                                            <input type="checkbox" name="webhookEvent" value="chats.upsert">
+                                            <span>New Chats</span>
+                                        </label>
+                                        <label class="event-checkbox">
+                                            <input type="checkbox" name="webhookEvent" value="chats.update">
+                                            <span>Chat Updates</span>
+                                        </label>
+                                        <label class="event-checkbox">
+                                            <input type="checkbox" name="webhookEvent" value="contacts.upsert">
+                                            <span>Contact Updates</span>
+                                        </label>
+                                        <label class="event-checkbox">
+                                            <input type="checkbox" name="webhookEvent" value="groups.upsert">
+                                            <span>New Groups</span>
+                                        </label>
+                                        <label class="event-checkbox">
+                                            <input type="checkbox" name="webhookEvent"
+                                                value="group-participants.update">
+                                            <span>Group Changes</span>
+                                        </label>
+                                        <label class="event-checkbox">
+                                            <input type="checkbox" name="webhookEvent" value="call">
+                                            <span>Incoming Calls</span>
+                                        </label>
+                                    </div>
+                                    <small style="color: var(--text-muted); margin-top: 0.5rem; display: block;">
+                                        <i class="fas fa-info-circle"></i> No events selected = No webhooks sent
+                                    </small>
+                                </div>
+
+                                <div class="form-actions" style="display: flex; gap: 0.75rem;">
+                                    <button id="btnSaveWebhook" class="btn btn-success">
+                                        <i class="fas fa-save"></i> Save Webhook
+                                    </button>
+                                    <button id="btnTestWebhook" class="btn btn-primary">
+                                        <i class="fas fa-vial"></i> Test Webhook
+                                    </button>
+                                    <button id="btnRemoveWebhook" class="btn btn-icon"
+                                        style="color: var(--accent-danger);">
+                                        <i class="fas fa-trash"></i> Remove
+                                    </button>
+                                </div>
+                                <div class="webhook-info"
+                                    style="margin-top: 1.5rem; padding: 1rem; background: rgba(6, 182, 212, 0.1); border-left: 3px solid var(--accent-primary); border-radius: 8px;">
+                                    <h4
+                                        style="margin: 0 0 0.5rem 0; font-size: 0.875rem; color: var(--accent-primary);">
+                                        Available Webhook Events</h4>
+                                    <p style="margin: 0; font-size: 0.8125rem; color: var(--text-secondary);">
+                                        Select which events above should trigger webhooks. Unselected events will be
+                                        ignored.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Live Events & Webhook Events (Tabs) -->
+                <div class="col-right">
+                    <div class="card">
+                        <div class="tabs-header">
+                            <button class="events-tab-btn active" data-events-tab="live-events">
+                                <i class="fas fa-bolt"></i> Live Events
+                            </button>
+                            <button class="events-tab-btn" data-events-tab="live-webhook">
+                                <i class="fas fa-satellite-dish"></i> Live Webhook Events
+                            </button>
+                            <button class="btn btn-icon btn-sm" id="btnClearCurrentLog" style="margin-left: auto;">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                        <div class="card-body no-padding" style="flex: 1; display: flex; flex-direction: column;">
+                            <!-- Live Events Tab -->
+                            <div id="live-events" class="events-tab-content active" style="flex: 1; overflow-y: auto;">
+                                <div id="eventLog" class="event-log">
+                                    <!-- Events injected here -->
+                                </div>
+                            </div>
+
+                            <!-- Live Webhook Events Tab -->
+                            <div id="live-webhook" class="events-tab-content" style="flex: 1; overflow-y: auto;">
+                                <div id="webhookLog" class="webhook-log">
+                                    <!-- Webhook events injected here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>&copy; 2025 <strong>Dicky Ermawan S</strong> x <strong>Antigravity</strong> | Kilas WhatsApp Gateway
+            </p>
+        </footer>
+    </div>
+
+    <!-- QR Modal -->
+    <div id="qrModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Scan QR Code</h2>
+            <div class="qr-container">
+                <img id="qrImage" src="" alt="QR Code">
+                <div id="qrSpinner" class="spinner"></div>
+            </div>
+            <p>Open WhatsApp on your phone > Menu > Linked Devices > Link a Device</p>
+        </div>
+    </div>
+
+    <!-- New Session Modal -->
+    <div id="newSessionModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="window.app.closeNewSessionModal()">&times;</span>
+            <h2>Create New Session</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Enter a unique name for your WhatsApp
+                session</p>
+            <div class="form-group">
+                <label>Session Name</label>
+                <input type="text" id="newSessionInput" class="form-control"
+                    placeholder="e.g., MainNumber, Support, Sales" autofocus>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="window.app.closeNewSessionModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="window.app.confirmNewSession()">Create Session</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="window.app.closeDeleteModal()">&times;</span>
+            <h2>Delete Session</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Are you sure you want to delete session
+                <strong id="deleteSessionName"></strong>?
+            </p>
+            <p style="color: var(--accent-warning); font-size: 0.875rem; margin-bottom: 1.5rem;">
+                <i class="fas fa-exclamation-triangle"></i> This will remove all session data and logout from WhatsApp.
+            </p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="window.app.closeDeleteModal()">Cancel</button>
+                <button class="btn" style="background: var(--accent-danger); color: white;"
+                    onclick="window.app.confirmDelete()">Delete Session</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/dashboard.js"></script>
+    <script src="/js/websocket.js"></script>
+    <script src="/js/apiTester.js"></script>
+    <script src="/js/webhookLogger.js"></script>
+</body>
+
+</html>

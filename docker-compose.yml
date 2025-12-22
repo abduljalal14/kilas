@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  kirimkan:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kirimkan-gateway
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+      - SESSION_DIR=/app/sessions
+      - MEDIA_DIR=/app/media
+      - API_KEY=${API_KEY:-admin123}
+      - CORS_ORIGIN=${CORS_ORIGIN:-*}
+    volumes:
+      # Persistent storage for sessions and media
+      - ./sessions:/app/sessions
+      - ./media:/app/media
+      # Optional: Mount custom .env file
+      # - ./.env:/app/.env:ro
+    networks:
+      - kirimkan-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/sessions', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  kirimkan-network:
+    driver: bridge
+
+volumes:
+  sessions:
+  media:
