@@ -74,7 +74,7 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/kilas.git
+git clone https://github.com/dickyermawan/kilas.git
 cd kilas
 
 # Install dependencies
@@ -92,7 +92,7 @@ npm start
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/kilas.git
+git clone https://github.com/dickyermawan/kilas.git
 cd kilas
 
 # Start with Docker Compose
@@ -796,7 +796,7 @@ We welcome contributions from the community! Here's how you can help:
 
 ```bash
 # Fork and clone the repository
-git clone https://github.com/yourusername/kilas.git
+git clone https://github.com/dickyermawan/kilas.git
 cd kilas
 
 # Install dependencies
@@ -913,8 +913,8 @@ This project was built with the assistance of **[Antigravity](https://github.com
 
 ## 📞 Support & Community
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/kilas/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/kilas/discussions)
+- **Issues**: [GitHub Issues](https://github.com/dickyermawan/kilas/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/dickyermawan/kilas/discussions)
 - **Email**: your.email@example.com
 
 ---
@@ -923,13 +923,13 @@ This project was built with the assistance of **[Antigravity](https://github.com
 
 If you find this project useful, please consider giving it a ⭐ on GitHub!
 
-[![Star History Chart](https://api.star-history.com/svg?repos=yourusername/kilas&type=Date)](https://star-history.com/#yourusername/kilas&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=dickyermawan/kilas&type=Date)](https://star-history.com/#dickyermawan/kilas&Date)
 
 ---
 
 <div align="center">
 
-**Made with ❤️ by [Dicky Ermawan S](https://github.com/yourusername)**
+**Made with ❤️ by [Dicky Ermawan S](https://github.com/dickyermawan)**
 
 **Powered by [Antigravity](https://github.com/google-deepmind) 🚀**
 
