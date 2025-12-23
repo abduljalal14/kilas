@@ -1,5 +1,95 @@
 const express = require('express');
 const router = express.Router();
+const path = require('path');
+const fs = require('fs').promises;
+
+const CONFIG_FILE = path.join(__dirname, '../../webhook-config.json');
+
+// Ensure config file exists
+async function ensureConfigFile() {
+    try {
+        await fs.access(CONFIG_FILE);
+    } catch {
+        // Create default config as empty object (will store per-session configs)
+        const defaultConfig = {};
+        await fs.writeFile(CONFIG_FILE, JSON.stringify(defaultConfig, null, 2));
+    }
+}
+
+// GET /api/webhook/config - Get webhook configuration for a session
+router.get('/config', async (req, res) => {
+    try {
+        const { sessionId } = req.query;
+
+        await ensureConfigFile();
+        const data = await fs.readFile(CONFIG_FILE, 'utf8');
+        const allConfigs = JSON.parse(data);
+
+        // If sessionId provided, return that session's config
+        if (sessionId && allConfigs[sessionId]) {
+            res.json({ success: true, data: allConfigs[sessionId] });
+        } else if (sessionId) {
+            // Return default config for new session
+            res.json({
+                success: true,
+                data: {
+                    sessionId,
+                    callbackUrls: [],
+                    retry: true,
+                    domainWhitelist: ['*'],
+                    events: []
+                }
+            });
+        } else {
+            // No sessionId, return all configs
+            res.json({ success: true, data: allConfigs });
+        }
+    } catch (err) {
+        req.logger.error('Error reading webhook config:', err);
+        res.status(500).json({ success: false, error: 'Failed to read configuration' });
+    }
+});
+
+// POST /api/webhook/config - Save webhook configuration for a session
+router.post('/config', async (req, res) => {
+    try {
+        const { sessionId, callbackUrls, retry, domainWhitelist, events } = req.body;
+
+        if (!sessionId) {
+            return res.status(400).json({ success: false, error: 'Session ID is required' });
+        }
+
+        if (!Array.isArray(callbackUrls) || callbackUrls.length === 0) {
+            return res.status(400).json({ success: false, error: 'At least one callback URL is required' });
+        }
+
+        if (!Array.isArray(events) || events.length === 0) {
+            return res.status(400).json({ success: false, error: 'At least one event must be selected' });
+        }
+
+        // Load existing configs
+        await ensureConfigFile();
+        const data = await fs.readFile(CONFIG_FILE, 'utf8');
+        const allConfigs = JSON.parse(data);
+
+        // Save config for this session
+        allConfigs[sessionId] = {
+            sessionId,
+            callbackUrls,
+            retry: retry !== false,
+            domainWhitelist: Array.isArray(domainWhitelist) ? domainWhitelist : ['*'],
+            events,
+            updatedAt: new Date().toISOString()
+        };
+
+        await fs.writeFile(CONFIG_FILE, JSON.stringify(allConfigs, null, 2));
+
+        res.json({ success: true, message: 'Configuration saved successfully' });
+    } catch (err) {
+        req.logger.error('Error saving webhook config:', err);
+        res.status(500).json({ success: false, error: 'Failed to save configuration' });
+    }
+});
 
 // Get webhook configuration for a session
 router.get('/:sessionId', async (req, res) => {

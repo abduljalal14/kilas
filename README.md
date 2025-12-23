@@ -669,6 +669,21 @@ print_r(json_decode($response, true));
 - `group-participants.update` - Group participant changes
 - `call` - Incoming calls
 
+**Webhook Payload Structure:**
+```json
+{
+  "event": "messages.upsert",
+  "sessionId": "MySession",
+  "timestamp": "2024-01-01T12:00:00.000Z",
+  "data": {
+    "type": "notify",
+    "messages": [{...}],
+    "isGroup": false,           // true if message is from a group
+    "chatType": "private"       // 'private' or 'group'
+  }
+}
+```
+
 ---
 
 #### Get Webhook Configuration

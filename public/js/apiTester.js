@@ -226,7 +226,7 @@ document.querySelectorAll('input[name="uploadMethod"]').forEach(radio => {
 // Send Request Button
 document.getElementById('btnSendRequest').addEventListener('click', async () => {
     const selected = select.value;
-    if (!selected) return alert('Please select an endpoint');
+    if (!selected) return Toast.warning('Please select an endpoint');
 
     // Parse URL and Method
     const [method, urlTemplate] = selected.split(' ');
@@ -237,7 +237,7 @@ document.getElementById('btnSendRequest').addEventListener('click', async () => 
     try {
         body = JSON.parse(bodyEditor.value);
     } catch (e) {
-        alert('Invalid JSON');
+        Toast.error('Invalid JSON in request body');
         return;
     }
 
@@ -321,7 +321,7 @@ document.getElementById('btnSendRequest').addEventListener('click', async () => 
                 res = await window.app.apiCall(url, method, body);
             } else {
                 // No file or base64 provided
-                alert('Please provide a file or base64 string');
+                Toast.warning('Please provide a file or base64 string');
                 btn.innerHTML = originalHTML;
                 btn.disabled = false;
                 return;
@@ -334,14 +334,36 @@ document.getElementById('btnSendRequest').addEventListener('click', async () => 
         responsePre.textContent = JSON.stringify(res, null, 4);
         responseContainer.classList.remove('hidden');
 
+        // Show toast notification
+        if (res && res.success) {
+            Toast.success('Request completed successfully!');
+        } else if (res && res.success === false) {
+            Toast.error(res.message || 'Request failed');
+        }
+
+        // Auto-scroll to response for better UX
+        responseContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
         btn.innerHTML = originalHTML;
         btn.disabled = false;
     } catch (err) {
         responsePre.textContent = 'Error: ' + err.message;
         responseContainer.classList.remove('hidden');
 
+        // Show error toast
+        Toast.error('Request failed: ' + err.message);
+
+        // Auto-scroll to response for better UX
+        responseContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
         const btn = document.getElementById('btnSendRequest');
         btn.innerHTML = '<i class="fas fa-play"></i> Send Request';
         btn.disabled = false;
     }
 });
+
+// Initialize: Select first endpoint on page load
+if (select.options.length > 1) {
+    select.selectedIndex = 1; // Select first real endpoint (skip "Select endpoint...")
+    select.dispatchEvent(new Event('change')); // Trigger change event to update UI
+}

@@ -120,11 +120,17 @@ class BaileysHandler {
             this.socket.ev.on('messages.upsert', async (m) => {
                 if (m.type === 'notify') {
                     for (const msg of m.messages) {
+                        // Determine if message is from group or private chat
+                        const isGroup = msg.key.remoteJid.endsWith('@g.us');
+                        const chatType = isGroup ? 'group' : 'private';
+
                         // Send webhook for EACH individual message
                         if (this.webhookSender) {
                             const result = await this.webhookSender.send(this.sessionId, 'messages.upsert', {
                                 type: m.type,
-                                messages: [msg] // Send only this single message
+                                messages: [msg], // Send only this single message
+                                isGroup: isGroup,
+                                chatType: chatType
                             });
                             if (result) {
                                 this.io.emit('webhook:sent', result);

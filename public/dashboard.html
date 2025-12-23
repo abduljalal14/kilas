@@ -17,13 +17,19 @@
         <!-- Navbar -->
         <header class="navbar">
             <div class="brand">
-                <img src="/images/logo.png" alt="Kilas Logo" style="width: 40px; height: 40px; object-fit: contain;">
+                <img src="/images/logo.png" alt="Kilas Logo">
                 <span>Kilas</span>
             </div>
             <div class="nav-actions">
                 <div class="status-indicator" id="wsStatus">
-                    <span class="dot"></span> WebSocket Connected
+                    <span class="dot"></span> <span>Operational</span>
                 </div>
+                <div class="total-messages">
+                    TOTAL MSGS: <strong id="totalMessages">84,392</strong>
+                </div>
+                <button id="themeToggle" class="btn btn-icon" title="Toggle Theme">
+                    <i class="fas fa-moon"></i>
+                </button>
                 <button id="logoutBtn" class="btn btn-logout">
                     <i class="fas fa-sign-out-alt"></i> Logout
                 </button>
@@ -31,292 +37,430 @@
         </header>
 
         <main class="main-content">
-            <!-- Stats Row (Removed Clients card) -->
+            <!-- Stats Grid -->
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-icon info">
-                        <i class="fas fa-server"></i>
+                        <i class="fas fa-mobile-alt"></i>
                     </div>
                     <div class="stat-info">
-                        <h3>Total Sessions</h3>
-                        <h2 id="statTotal">0</h2>
+                        <h3>Active Sessions</h3>
+                        <h2 id="statActiveSessions">3 / 5</h2>
                     </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon success">
-                        <i class="fas fa-check-circle"></i>
+                    <div class="stat-icon info">
+                        <i class="fas fa-list"></i>
                     </div>
                     <div class="stat-info">
-                        <h3>Connected</h3>
-                        <h2 id="statConnected">0</h2>
+                        <h3>Queue Length</h3>
+                        <h2 id="statQueueLength">0</h2>
                     </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon warning">
-                        <i class="fas fa-exclamation-circle"></i>
+                    <div class="stat-icon danger">
+                        <i class="fas fa-exclamation-triangle"></i>
                     </div>
                     <div class="stat-info">
-                        <h3>Disconnected</h3>
-                        <h2 id="statDisconnected">0</h2>
+                        <h3>Error Rate</h3>
+                        <h2 id="statErrorRate">0.02%</h2>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon info">
+                        <i class="fas fa-globe"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Webhooks</h3>
+                        <h2 id="statWebhooks">12ms</h2>
                     </div>
                 </div>
             </div>
 
-            <div class="dashboard-grid">
-                <!-- Left Column: Sessions & API Tester -->
-                <div class="col-left">
-                    <!-- Sessions Panel -->
+            <!-- Main Tabs Navigation -->
+            <div class="main-tabs">
+                <button class="main-tab-btn" data-main-tab="monitor-logs">
+                    <i class="fas fa-chart-line"></i> Monitor & Logs
+                </button>
+                <button class="main-tab-btn active" data-main-tab="devices">
+                    <i class="fas fa-mobile-alt"></i> Devices
+                </button>
+                <button class="main-tab-btn" data-main-tab="api-playground">
+                    <i class="fas fa-code"></i> API Playground
+                </button>
+                <button class="main-tab-btn" data-main-tab="webhook">
+                    <i class="fas fa-webhook"></i> Webhook
+                </button>
+            </div>
+
+            <!-- Tab Contents -->
+
+            <!-- =============== MONITOR & LOGS TAB =============== -->
+            <div id="monitor-logs" class="main-tab-content">
+                <div class="logs-layout">
+                    <!-- Webhook History -->
                     <div class="card">
                         <div class="card-header">
-                            <h3><i class="fas fa-list"></i> Sessions</h3>
-                            <button class="btn btn-primary btn-sm" id="btnNewSession">
-                                <i class="fas fa-plus"></i> New Session
-                            </button>
+                            <h3><i class="fas fa-history"></i> Webhook History</h3>
+                            <a href="#"
+                                style="color: var(--accent-primary); font-size: 0.875rem; text-decoration: none;">View
+                                All Logs</a>
                         </div>
-                        <div class="card-body no-padding">
-                            <div id="sessionsList" class="sessions-list">
-                                <div class="empty-state">Loading sessions...</div>
-                            </div>
+                        <div class="card-body no-padding" style="overflow-x: auto;">
+                            <table class="webhook-history-table">
+                                <thead>
+                                    <tr>
+                                        <th>Event Type</th>
+                                        <th>Target URL</th>
+                                        <th>Status</th>
+                                        <th>Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="webhookHistoryTable">
+                                    <tr>
+                                        <td><span class="event-type-badge">message.upsert</span></td>
+                                        <td>https://api.myshop.com/wa/hook</td>
+                                        <td><span class="status-badge success">HTTP 200</span></td>
+                                        <td>10:42:05 <span style="color: var(--text-muted);">45ms</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="event-type-badge">message.ack</span></td>
+                                        <td>https://api.myshop.com/wa/hook</td>
+                                        <td><span class="status-badge success">HTTP 200</span></td>
+                                        <td>10:41:58 <span style="color: var(--text-muted);">32ms</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="event-type-badge">group.join</span></td>
+                                        <td>https://crm.system.io/leads</td>
+                                        <td><span class="status-badge error">HTTP 404</span></td>
+                                        <td>10:40:12 <span style="color: var(--text-muted);">120ms</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
 
-                    <!-- Tabs Container -->
-                    <div class="card">
-                        <div class="tabs-header">
-                            <button class="tab-btn active" data-tab="api-tester">
-                                <i class="fas fa-code"></i> API Tester
-                            </button>
-                            <button class="tab-btn" data-tab="quick-send">
-                                <i class="fas fa-paper-plane"></i> Quick Send
-                            </button>
-                            <button class="tab-btn" data-tab="webhook">
-                                <i class="fas fa-webhook"></i> Webhook
-                            </button>
+                    <!-- Live Events -->
+                    <div class="live-events-panel">
+                        <div class="live-events-header">
+                            <h3 style="font-size: 1rem; margin: 0; color: var(--text-primary);"><i
+                                    class="fas fa-bolt"></i> Live Events</h3>
+                            <div class="listening-indicator">LISTENING</div>
                         </div>
-                        <div class="card-body">
-                            <!-- API Tester Tab -->
-                            <div id="api-tester" class="tab-content active">
-                                <div class="form-group">
-                                    <label>Session</label>
-                                    <select id="apiSession" class="form-control">
-                                        <option value="">Select session...</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label>Endpoint</label>
-                                    <select id="apiEndpoint" class="form-control">
-                                        <option value="">Select endpoint...</option>
-                                    </select>
-                                </div>
-
-                                <!-- Upload Method Selector (shows only for image/document endpoints) -->
-                                <div class="form-group" id="uploadMethodGroup" style="display:none;">
-                                    <label>Upload Method</label>
-                                    <div style="display: flex; gap: 1.5rem; margin-top: 0.5rem;">
-                                        <label style="display: flex; align-items: center; cursor: pointer;">
-                                            <input type="radio" name="uploadMethod" value="file" checked
-                                                style="margin-right: 0.5rem; cursor: pointer;">
-                                            <span>File Upload</span>
-                                        </label>
-                                        <label style="display: flex; align-items: center; cursor: pointer;">
-                                            <input type="radio" name="uploadMethod" value="base64"
-                                                style="margin-right: 0.5rem; cursor: pointer;">
-                                            <span>Base64</span>
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <div class="form-group" id="fileUploadGroup" style="display:none;">
-                                    <label>Upload File</label>
-                                    <input type="file" id="apiFile" class="form-control"
-                                        accept="image/*,video/*,.pdf,.doc,.docx">
-                                </div>
-
-                                <!-- Base64 Input Group -->
-                                <div class="form-group" id="base64InputGroup" style="display:none;">
-                                    <label>Base64 String</label>
-                                    <textarea id="apiBase64" class="form-control code-editor" rows="6"
-                                        placeholder="Paste base64 string here (with or without data URL prefix)"></textarea>
-                                    <small style="color: var(--text-muted); margin-top: 0.5rem; display: block;">
-                                        <i class="fas fa-info-circle"></i> Supports both formats:
-                                        <code>data:image/jpeg;base64,...</code> or raw base64
-                                    </small>
-                                </div>
-
-                                <div class="form-group">
-                                    <label>Request Body (JSON)</label>
-                                    <textarea id="apiBody" class="form-control code-editor" rows="10">{}</textarea>
-                                </div>
-                                <div class="form-actions">
-                                    <button id="btnSendRequest" class="btn btn-success">
-                                        <i class="fas fa-play"></i> Send Request
-                                    </button>
-                                </div>
-                                <div class="response-area hidden" id="apiResponseContainer">
-                                    <label>Response</label>
-                                    <pre id="apiResponse"></pre>
-                                </div>
+                        <div id="monitorEventLog" class="event-log">
+                            <div class="log-entry" style="border-left-color: var(--accent-danger);">
+                                <span class="log-time">23:23:18</span>
+                                <span class="log-type err">ERR</span>
+                                <span class="log-message">Timeout waiting for ACK</span>
                             </div>
-
-                            <!-- Quick Send Tab -->
-                            <div id="quick-send" class="tab-content">
-                                <form id="quickSendForm">
-                                    <div class="form-group">
-                                        <label>Session</label>
-                                        <select id="qsSession" class="form-control" required>
-                                            <option value="">Select session...</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Phone Number</label>
-                                        <input type="text" id="qsPhone" class="form-control" placeholder="628123456789"
-                                            required>
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Message</label>
-                                        <textarea id="qsMessage" class="form-control" rows="5"
-                                            placeholder="Type your message here..." required></textarea>
-                                    </div>
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="fas fa-paper-plane"></i> Send Message
-                                    </button>
-                                </form>
+                            <div class="log-entry" style="border-left-color: var(--accent-success);">
+                                <span class="log-time">23:23:10</span>
+                                <span class="log-type ok">OK</span>
+                                <span class="log-message">Message delivered to 62812...</span>
                             </div>
-
-                            <!-- Webhook Tab -->
-                            <div id="webhook" class="tab-content">
-                                <div class="form-group">
-                                    <label>Session</label>
-                                    <select id="webhookSession" class="form-control">
-                                        <option value="">Select session...</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label>Webhook URL</label>
-                                    <input type="url" id="webhookUrl" class="form-control"
-                                        placeholder="https://your-webhook-url.com/endpoint">
-                                    <small style="color: var(--text-muted); margin-top: 0.5rem; display: block;">
-                                        Selected events will be sent to this URL
-                                    </small>
-                                </div>
-
-                                <!-- Event Selection -->
-                                <div class="form-group">
-                                    <label style="display: flex; justify-content: space-between; align-items: center;">
-                                        <span>Select Events to Send</span>
-                                        <label
-                                            style="font-size: 0.875rem; color: var(--accent-primary); cursor: pointer; margin: 0;">
-                                            <input type="checkbox" id="checkAllEvents"
-                                                style="margin-right: 0.5rem; cursor: pointer;">
-                                            Check All
-                                        </label>
-                                    </label>
-                                    <div class="webhook-events-grid">
-                                        <label class="event-checkbox">
-                                            <input type="checkbox" name="webhookEvent" value="connection.update">
-                                            <span>Connection Updates</span>
-                                        </label>
-                                        <label class="event-checkbox">
-                                            <input type="checkbox" name="webhookEvent" value="messages.upsert">
-                                            <span>New Messages</span>
-                                        </label>
-                                        <label class="event-checkbox">
-                                            <input type="checkbox" name="webhookEvent" value="messages.update">
-                                            <span>Message Updates</span>
-                                        </label>
-                                        <label class="event-checkbox">
-                                            <input type="checkbox" name="webhookEvent" value="messages.delete">
-                                            <span>Deleted Messages</span>
-                                        </label>
-                                        <label class="event-checkbox">
-                                            <input type="checkbox" name="webhookEvent" value="presence.update">
-                                            <span>User Presence</span>
-                                        </label>
-                                        <label class="event-checkbox">
-                                            <input type="checkbox" name="webhookEvent" value="chats.upsert">
-                                            <span>New Chats</span>
-                                        </label>
-                                        <label class="event-checkbox">
-                                            <input type="checkbox" name="webhookEvent" value="chats.update">
-                                            <span>Chat Updates</span>
-                                        </label>
-                                        <label class="event-checkbox">
-                                            <input type="checkbox" name="webhookEvent" value="contacts.upsert">
-                                            <span>Contact Updates</span>
-                                        </label>
-                                        <label class="event-checkbox">
-                                            <input type="checkbox" name="webhookEvent" value="groups.upsert">
-                                            <span>New Groups</span>
-                                        </label>
-                                        <label class="event-checkbox">
-                                            <input type="checkbox" name="webhookEvent"
-                                                value="group-participants.update">
-                                            <span>Group Changes</span>
-                                        </label>
-                                        <label class="event-checkbox">
-                                            <input type="checkbox" name="webhookEvent" value="call">
-                                            <span>Incoming Calls</span>
-                                        </label>
-                                    </div>
-                                    <small style="color: var(--text-muted); margin-top: 0.5rem; display: block;">
-                                        <i class="fas fa-info-circle"></i> No events selected = No webhooks sent
-                                    </small>
-                                </div>
-
-                                <div class="form-actions" style="display: flex; gap: 0.75rem;">
-                                    <button id="btnSaveWebhook" class="btn btn-success">
-                                        <i class="fas fa-save"></i> Save Webhook
-                                    </button>
-                                    <button id="btnTestWebhook" class="btn btn-primary">
-                                        <i class="fas fa-vial"></i> Test Webhook
-                                    </button>
-                                    <button id="btnRemoveWebhook" class="btn btn-icon"
-                                        style="color: var(--accent-danger);">
-                                        <i class="fas fa-trash"></i> Remove
-                                    </button>
-                                </div>
-                                <div class="webhook-info"
-                                    style="margin-top: 1.5rem; padding: 1rem; background: rgba(6, 182, 212, 0.1); border-left: 3px solid var(--accent-primary); border-radius: 8px;">
-                                    <h4
-                                        style="margin: 0 0 0.5rem 0; font-size: 0.875rem; color: var(--accent-primary);">
-                                        Available Webhook Events</h4>
-                                    <p style="margin: 0; font-size: 0.8125rem; color: var(--text-secondary);">
-                                        Select which events above should trigger webhooks. Unselected events will be
-                                        ignored.
-                                    </p>
-                                </div>
+                            <div class="log-entry" style="border-left-color: var(--accent-info);">
+                                <span class="log-time">23:23:08</span>
+                                <span class="log-type info">INFO</span>
+                                <span class="log-message">Webhook POST /callback (200 OK)</span>
                             </div>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Right Column: Live Events & Webhook Events (Tabs) -->
-                <div class="col-right">
-                    <div class="card">
-                        <div class="tabs-header">
-                            <button class="events-tab-btn active" data-events-tab="live-events">
-                                <i class="fas fa-bolt"></i> Live Events
-                            </button>
-                            <button class="events-tab-btn" data-events-tab="live-webhook">
-                                <i class="fas fa-satellite-dish"></i> Live Webhook Events
-                            </button>
-                            <button class="btn btn-icon btn-sm" id="btnClearCurrentLog" style="margin-left: auto;">
-                                <i class="fas fa-trash"></i>
-                            </button>
+            <!-- =============== DEVICES TAB =============== -->
+            <div id="devices" class="main-tab-content active">
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-mobile-alt"></i> Connected Devices</h3>
+                        <button class="btn btn-success btn-sm" id="btnNewSession">
+                            <i class="fas fa-plus"></i> Add Device
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Manage WhatsApp sessions and
+                            multi-device connections.</p>
+                        <div class="devices-grid" id="devicesGrid">
+                            <!-- Devices will be dynamically loaded here -->
                         </div>
-                        <div class="card-body no-padding" style="flex: 1; display: flex; flex-direction: column;">
-                            <!-- Live Events Tab -->
-                            <div id="live-events" class="events-tab-content active" style="flex: 1; overflow-y: auto;">
-                                <div id="eventLog" class="event-log">
-                                    <!-- Events injected here -->
-                                </div>
+
+                        <div class="add-device-card" onclick="document.getElementById('btnNewSession').click()">
+                            <i class="fas fa-plus-circle"></i>
+                            <p>Link New Number</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- =============== API PLAYGROUND TAB =============== -->
+            <div id="api-playground" class="main-tab-content">
+                <!-- API Tester Panel (Full Width) -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-code"></i> API Playground</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label>Session</label>
+                            <select id="apiSession" class="form-control">
+                                <option value="">Select session...</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Endpoint</label>
+                            <select id="apiEndpoint" class="form-control">
+                                <option value="">Select endpoint...</option>
+                            </select>
+                        </div>
+
+                        <!-- Upload Method Selector (shows only for image/document endpoints) -->
+                        <div class="form-group" id="uploadMethodGroup" style="display:none;">
+                            <label>Upload Method</label>
+                            <div style="display: flex; gap: 1.5rem; margin-top: 0.5rem;">
+                                <label style="display: flex; align-items: center; cursor: pointer;">
+                                    <input type="radio" name="uploadMethod" value="file" checked
+                                        style="margin-right: 0.5rem; cursor: pointer;">
+                                    <span>File Upload</span>
+                                </label>
+                                <label style="display: flex; align-items: center; cursor: pointer;">
+                                    <input type="radio" name="uploadMethod" value="base64"
+                                        style="margin-right: 0.5rem; cursor: pointer;">
+                                    <span>Base64</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-group" id="fileUploadGroup" style="display:none;">
+                            <label>Upload File</label>
+                            <input type="file" id="apiFile" class="form-control"
+                                accept="image/*,video/*,.pdf,.doc,.docx">
+                        </div>
+
+                        <!-- Base64 Input Group -->
+                        <div class="form-group" id="base64InputGroup" style="display:none;">
+                            <label>Base64 String</label>
+                            <textarea id="apiBase64" class="form-control code-editor" rows="6"
+                                placeholder="Paste base64 string here (with or without data URL prefix)"></textarea>
+                            <small style="color: var(--text-muted); margin-top: 0.5rem; display: block;">
+                                <i class="fas fa-info-circle"></i> Supports both formats:
+                                <code>data:image/jpeg;base64,...</code> or raw base64
+                            </small>
+                        </div>
+
+                        <!-- Request Body Editor -->
+                        <div class="form-group">
+                            <label>Request Body</label>
+                            <textarea id="apiBody" class="form-control code-editor" rows="12"
+                                placeholder="Request body will appear here..."></textarea>
+                            <small style="color: var(--text-muted); margin-top: 0.5rem; display: block;">
+                                <i class="fas fa-info-circle"></i> Edit the JSON body as needed before sending
+                            </small>
+                        </div>
+
+                        <button id="btnSendRequest" class="btn btn-success" style="width: 100%;">
+                            <i class="fas fa-paper-plane"></i> Execute Request
+                        </button>
+
+                        <div class="response-area hidden" id="apiResponseContainer">
+                            <label style="font-weight: 600; margin-bottom: 0.5rem; display: block;">Response:</label>
+                            <pre id="apiResponse"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- =============== SYSTEM TAB =============== -->
+            <!-- =============== WEBHOOK TAB =============== -->
+            <div id="webhook" class="main-tab-content">
+                <div class="webhook-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                    <!-- Left Card: Webhook Configuration -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-webhook"></i> Webhook Configuration</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label>Session</label>
+                                <select id="webhookSession" class="form-control">
+                                    <option value="">Select connected session...</option>
+                                </select>
+                                <small style="color: var(--text-muted); margin-top: 0.5rem; display: block;">
+                                    <i class="fas fa-info-circle"></i> Only connected sessions are shown
+                                </small>
                             </div>
 
-                            <!-- Live Webhook Events Tab -->
-                            <div id="live-webhook" class="events-tab-content" style="flex: 1; overflow-y: auto;">
-                                <div id="webhookLog" class="webhook-log">
-                                    <!-- Webhook events injected here -->
+                            <div class="form-group">
+                                <label>Callback URLs</label>
+                                <textarea id="webhookUrls" class="form-control code-editor" rows="6"
+                                    placeholder="https://example.com/webhook&#10;https://backup.com/webhook&#10;(one URL per line)"></textarea>
+                                <small style="color: var(--text-muted); margin-top: 0.5rem; display: block;">
+                                    <i class="fas fa-info-circle"></i> Enter one URL per line. All URLs will receive
+                                    webhook events.
+                                </small>
+                            </div>
+
+                            <div class="form-group">
+                                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                    <input type="checkbox" id="webhookRetry" checked
+                                        style="cursor: pointer; width: auto;">
+                                    <span>Enable retry on failure (up to 3 attempts)</span>
+                                </label>
+                            </div>
+
+                            <button id="btnSaveWebhook" class="btn btn-success" style="width: 100%;">
+                                <i class="fas fa-save"></i> Save Webhook Configuration
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Right Card: Webhook Options -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-cog"></i> Webhook Options</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label>Domain Whitelist</label>
+                                <input type="text" id="webhookDomains" class="form-control"
+                                    placeholder="*, example.com, api.mysite.com" value="*">
+                                <small style="color: var(--text-muted); margin-top: 0.5rem; display: block;">
+                                    <i class="fas fa-info-circle"></i> Comma-separated domains. Use * to allow all
+                                    domains.
+                                </small>
+                            </div>
+
+                            <div class="form-group">
+                                <label style="margin-bottom: 1rem; display: block; font-weight: 600;">
+                                    <i class="fas fa-bell"></i> Webhook Events
+                                </label>
+
+                                <!-- Select All Events -->
+                                <label class="custom-checkbox"
+                                    style="margin-bottom: 1rem; padding: 0.75rem; background: var(--bg-hover); border-radius: 8px; display: flex; align-items: center; gap: 0.75rem;">
+                                    <input type="checkbox" id="selectAllEvents">
+                                    <span class="checkmark"></span>
+                                    <span style="font-weight: 600; flex: 1;">Select All Events</span>
+                                </label>
+
+                                <div
+                                    style="display: grid; grid-template-columns: 1fr; gap: 0.75rem; max-height: 400px; overflow-y: auto; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-secondary);">
+                                    <label
+                                        style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.5rem; border-radius: 4px; transition: background 0.2s;"
+                                        class="event-checkbox-label">
+                                        <input type="checkbox" class="webhook-event" value="connection.update" checked
+                                            style="cursor: pointer;">
+                                        <span
+                                            style="font-family: 'Courier New', monospace; font-size: 0.9rem;">connection.update</span>
+                                    </label>
+                                    <label
+                                        style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.5rem; border-radius: 4px; transition: background 0.2s;"
+                                        class="event-checkbox-label">
+                                        <input type="checkbox" class="webhook-event" value="messages.upsert" checked
+                                            style="cursor: pointer;">
+                                        <span
+                                            style="font-family: 'Courier New', monospace; font-size: 0.9rem;">messages.upsert</span>
+                                    </label>
+                                    <label
+                                        style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.5rem; border-radius: 4px; transition: background 0.2s;"
+                                        class="event-checkbox-label">
+                                        <input type="checkbox" class="webhook-event" value="messages.update"
+                                            style="cursor: pointer;">
+                                        <span
+                                            style="font-family: 'Courier New', monospace; font-size: 0.9rem;">messages.update</span>
+                                    </label>
+                                    <label
+                                        style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.5rem; border-radius: 4px; transition: background 0.2s;"
+                                        class="event-checkbox-label">
+                                        <input type="checkbox" class="webhook-event" value="messages.delete"
+                                            style="cursor: pointer;">
+                                        <span
+                                            style="font-family: 'Courier New', monospace; font-size: 0.9rem;">messages.delete</span>
+                                    </label>
+                                    <label
+                                        style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.5rem; border-radius: 4px; transition: background 0.2s;"
+                                        class="event-checkbox-label">
+                                        <input type="checkbox" class="webhook-event" value="message-receipt.update"
+                                            style="cursor: pointer;">
+                                        <span
+                                            style="font-family: 'Courier New', monospace; font-size: 0.9rem;">message-receipt.update</span>
+                                    </label>
+                                    <label
+                                        style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.5rem; border-radius: 4px; transition: background 0.2s;"
+                                        class="event-checkbox-label">
+                                        <input type="checkbox" class="webhook-event" value="presence.update"
+                                            style="cursor: pointer;">
+                                        <span
+                                            style="font-family: 'Courier New', monospace; font-size: 0.9rem;">presence.update</span>
+                                    </label>
+                                    <label
+                                        style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.5rem; border-radius: 4px; transition: background 0.2s;"
+                                        class="event-checkbox-label">
+                                        <input type="checkbox" class="webhook-event" value="chats.upsert"
+                                            style="cursor: pointer;">
+                                        <span
+                                            style="font-family: 'Courier New', monospace; font-size: 0.9rem;">chats.upsert</span>
+                                    </label>
+                                    <label
+                                        style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.5rem; border-radius: 4px; transition: background 0.2s;"
+                                        class="event-checkbox-label">
+                                        <input type="checkbox" class="webhook-event" value="chats.update"
+                                            style="cursor: pointer;">
+                                        <span
+                                            style="font-family: 'Courier New', monospace; font-size: 0.9rem;">chats.update</span>
+                                    </label>
+                                    <label
+                                        style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.5rem; border-radius: 4px; transition: background 0.2s;"
+                                        class="event-checkbox-label">
+                                        <input type="checkbox" class="webhook-event" value="chats.delete"
+                                            style="cursor: pointer;">
+                                        <span
+                                            style="font-family: 'Courier New', monospace; font-size: 0.9rem;">chats.delete</span>
+                                    </label>
+                                    <label
+                                        style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.5rem; border-radius: 4px; transition: background 0.2s;"
+                                        class="event-checkbox-label">
+                                        <input type="checkbox" class="webhook-event" value="contacts.upsert"
+                                            style="cursor: pointer;">
+                                        <span
+                                            style="font-family: 'Courier New', monospace; font-size: 0.9rem;">contacts.upsert</span>
+                                    </label>
+                                    <label
+                                        style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.5rem; border-radius: 4px; transition: background 0.2s;"
+                                        class="event-checkbox-label">
+                                        <input type="checkbox" class="webhook-event" value="contacts.update"
+                                            style="cursor: pointer;">
+                                        <span
+                                            style="font-family: 'Courier New', monospace; font-size: 0.9rem;">contacts.update</span>
+                                    </label>
+                                    <label
+                                        style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.5rem; border-radius: 4px; transition: background 0.2s;"
+                                        class="event-checkbox-label">
+                                        <input type="checkbox" class="webhook-event" value="groups.upsert"
+                                            style="cursor: pointer;">
+                                        <span
+                                            style="font-family: 'Courier New', monospace; font-size: 0.9rem;">groups.upsert</span>
+                                    </label>
+                                    <label
+                                        style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.5rem; border-radius: 4px; transition: background 0.2s;"
+                                        class="event-checkbox-label">
+                                        <input type="checkbox" class="webhook-event" value="groups.update"
+                                            style="cursor: pointer;">
+                                        <span
+                                            style="font-family: 'Courier New', monospace; font-size: 0.9rem;">groups.update</span>
+                                    </label>
+                                    <label
+                                        style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.5rem; border-radius: 4px; transition: background 0.2s;"
+                                        class="event-checkbox-label">
+                                        <input type="checkbox" class="webhook-event" value="group-participants.update"
+                                            style="cursor: pointer;">
+                                        <span
+                                            style="font-family: 'Courier New', monospace; font-size: 0.9rem;">group-participants.update</span>
+                                    </label>
                                 </div>
+                                <small style="color: var(--text-muted); margin-top: 0.5rem; display: block;">
+                                    <i class="fas fa-info-circle"></i> Select which events to send to your webhook URLs
+                                </small>
                             </div>
                         </div>
                     </div>
@@ -376,16 +520,33 @@
             </p>
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="window.app.closeDeleteModal()">Cancel</button>
-                <button class="btn" style="background: var(--accent-danger); color: white;"
-                    onclick="window.app.confirmDelete()">Delete Session</button>
+                <button class="btn btn-danger" onclick="window.app.confirmDelete()">Delete Session</button>
             </div>
         </div>
     </div>
 
+    <!-- Scripts -->
+    <script src="/js/theme.js"></script>
+    <script src="/js/toast.js"></script>
     <script src="/js/dashboard.js"></script>
     <script src="/js/websocket.js"></script>
     <script src="/js/apiTester.js"></script>
-    <script src="/js/webhookLogger.js"></script>
+    <script src="/js/webhook.js"></script>
+    <script>
+        // Main Tab Switching
+        document.querySelectorAll('.main-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Remove active class from all tabs and contents
+                document.querySelectorAll('.main-tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.main-tab-content').forEach(c => c.classList.remove('active'));
+
+                // Add active class to clicked tab and corresponding content
+                btn.classList.add('active');
+                const tabId = btn.getAttribute('data-main-tab');
+                document.getElementById(tabId).classList.add('active');
+            });
+        });
+    </script>
 </body>
 
 </html>

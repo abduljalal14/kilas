@@ -67,47 +67,53 @@ window.app = {
         });
 
         // Clear Logs - works with active tab
-        document.getElementById('btnClearCurrentLog').addEventListener('click', () => {
-            const activeTab = document.querySelector('.events-tab-content.active');
-            if (activeTab.id === 'live-events') {
-                document.getElementById('eventLog').innerHTML = '';
-                sessionStorage.removeItem('kirimkan_events');
-            } else if (activeTab.id === 'live-webhook') {
-                document.getElementById('webhookLog').innerHTML = '';
-                sessionStorage.removeItem('kirimkan_webhook_logs');
-            }
-        });
+        const btnClearLog = document.getElementById('btnClearCurrentLog');
+        if (btnClearLog) {
+            btnClearLog.addEventListener('click', () => {
+                const activeTab = document.querySelector('.events-tab-content.active');
+                if (activeTab.id === 'live-events') {
+                    document.getElementById('monitorEventLog').innerHTML = '';
+                    sessionStorage.removeItem('kirimkan_events');
+                } else if (activeTab.id === 'live-webhook') {
+                    document.getElementById('webhookLog').innerHTML = '';
+                    sessionStorage.removeItem('kirimkan_webhook_logs');
+                }
+            });
+        }
 
         // Quick Send
-        document.getElementById('quickSendForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const sessionId = document.getElementById('qsSession').value;
-            const chatId = document.getElementById('qsPhone').value;
-            const text = document.getElementById('qsMessage').value;
+        const quickSendForm = document.getElementById('quickSendForm');
+        if (quickSendForm) {
+            quickSendForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const sessionId = document.getElementById('qsSession').value;
+                const chatId = document.getElementById('qsPhone').value;
+                const text = document.getElementById('qsMessage').value;
 
-            if (!sessionId) return alert('Please select a session');
+                if (!sessionId) return alert('Please select a session');
 
-            try {
-                const btn = e.target.querySelector('button');
-                const originalText = btn.innerHTML;
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
-                btn.disabled = true;
+                try {
+                    const btn = e.target.querySelector('button');
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+                    btn.disabled = true;
 
-                const res = await this.apiCall('/api/messages/send-text', 'POST', { sessionId, chatId, text });
+                    const res = await this.apiCall('/api/messages/send-text', 'POST', { sessionId, chatId, text });
 
-                if (res.success) {
-                    this.showAlert('Message sent successfully!', 'success');
-                    document.getElementById('qsMessage').value = '';
-                } else {
-                    this.showAlert('Failed: ' + res.message, 'error');
+                    if (res.success) {
+                        this.showAlert('Message sent successfully!', 'success');
+                        document.getElementById('qsMessage').value = '';
+                    } else {
+                        this.showAlert('Failed: ' + res.message, 'error');
+                    }
+
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                } catch (err) {
+                    this.showAlert('Error sending message: ' + err.message, 'error');
                 }
-
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            } catch (err) {
-                this.showAlert('Error sending message: ' + err.message, 'error');
-            }
-        });
+            });
+        }
 
         // Enter key support for new session modal
         document.addEventListener('keydown', (e) => {
@@ -145,7 +151,7 @@ window.app = {
     loadSessions: async function () {
         const res = await this.apiCall('/api/sessions');
         if (res && res.success) {
-            const list = document.getElementById('sessionsList');
+            const list = document.getElementById('devicesGrid');
             const qsSelect = document.getElementById('qsSession');
             const apiSessionSelect = document.getElementById('apiSession');
 
@@ -156,22 +162,31 @@ window.app = {
                 return;
             }
 
-            // Build Sessions List (removed connect button, only QR and Delete)
+            // Build Sessions List with new device-card structure
             list.innerHTML = res.data.map(session => `
-                <div class="session-row" data-id="${session.id}">
-                    <div class="session-avatar">
-                        <i class="fab fa-whatsapp"></i>
+                <div class="device-card" data-id="${session.id}">
+                    <div class="device-header">
+                        <div class="device-avatar">
+                            <i class="fab fa-whatsapp"></i>
+                        </div>
+                        <div class="device-info">
+                            <div class="device-name">${session.id}</div>
+                            <div class="device-id">${session.user ? session.user.id.split(':')[0] : 'Not connected'}</div>
+                        </div>
                     </div>
-                    <div class="session-details">
-                        <span class="session-name">${session.id}</span>
-                        <span class="session-id">${session.user ? session.user.id.split(':')[0] : 'Not connected'}</span>
+                    <div class="device-status-row">
+                        <span>Status</span>
+                        <span class="device-status-badge ${session.status}">${session.status.toUpperCase()}</span>
                     </div>
-                    <span class="session-status status-${session.status}">${session.status}</span>
-                    <div class="session-actions">
-                        <button class="btn btn-icon" onclick="window.app.showQR('${session.id}')" title="Scan QR">
-                            <i class="fas fa-qrcode"></i>
+                    <div class="device-status-row" style="border: none;">
+                        <span>Uptime</span>
+                        <span class="device-uptime">-</span>
+                    </div>
+                    <div class="device-actions">
+                        <button class="btn btn-${session.status === 'connected' ? 'secondary' : 'success'} btn-sm" onclick="window.app.showQR('${session.id}')" style="flex: 1;">
+                            ${session.status === 'connected' ? 'Reconnect' : 'Scan QR Code'}
                         </button>
-                        <button class="btn btn-icon" onclick="window.app.deleteSession('${session.id}')" title="Delete" style="color:var(--accent-danger)">
+                        <button class="btn btn-danger btn-sm" onclick="window.app.deleteSession('${session.id}')" title="Delete">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
@@ -180,12 +195,21 @@ window.app = {
 
             // Build Quick Send Select (only connected sessions)
             const connected = res.data.filter(s => s.status === 'connected');
-            qsSelect.innerHTML = '<option value="">Select session...</option>' +
-                connected.map(s => `<option value="${s.id}">${s.id}</option>`).join('');
+            if (qsSelect) {
+                qsSelect.innerHTML = '<option value="">Select session...</option>' +
+                    connected.map(s => `<option value="${s.id}">${s.id}</option>`).join('');
+            }
 
-            // Build API Tester Session Select (all sessions)
-            apiSessionSelect.innerHTML = '<option value="">Select session...</option>' +
-                res.data.map(s => `<option value="${s.id}">${s.id} (${s.status})</option>`).join('');
+            // Build API Tester Session Select (only connected sessions)
+            if (apiSessionSelect) {
+                apiSessionSelect.innerHTML = '<option value="">Select session...</option>' +
+                    connected.map(s => `<option value="${s.id}">${s.id}</option>`).join('');
+            }
+
+            // Build Webhook Session Select (only connected sessions)
+            if (window.WebhookManager && typeof window.WebhookManager.populateSessions === 'function') {
+                window.WebhookManager.populateSessions(res.data);
+            }
 
             this.updateStatsData(res.data);
         }
@@ -196,6 +220,10 @@ window.app = {
             await this.apiCall('/api/sessions/create', 'POST', { sessionId });
             this.loadSessions();
             this.logEvent('info', 'System', `Session ${sessionId} created`);
+            // Show QR modal after creating session
+            setTimeout(() => {
+                this.showQR(sessionId);
+            }, 500);
         } catch (err) {
             alert('Failed to create session: ' + err.message);
         }
@@ -308,13 +336,17 @@ window.app = {
     },
 
     updateStatsData: function (sessions) {
-        document.getElementById('statTotal').textContent = sessions.length;
-        document.getElementById('statConnected').textContent = sessions.filter(s => s.status === 'connected').length;
-        document.getElementById('statDisconnected').textContent = sessions.filter(s => s.status !== 'connected').length;
+        const statTotal = document.getElementById('statTotal');
+        const statConnected = document.getElementById('statConnected');
+        const statDisconnected = document.getElementById('statDisconnected');
+
+        if (statTotal) statTotal.textContent = sessions.length;
+        if (statConnected) statConnected.textContent = sessions.filter(s => s.status === 'connected').length;
+        if (statDisconnected) statDisconnected.textContent = sessions.filter(s => s.status !== 'connected').length;
     },
 
     logEvent: function (type, source, message) {
-        const log = document.getElementById('eventLog');
+        const log = document.getElementById('monitorEventLog');
         const entry = document.createElement('div');
         entry.className = 'log-entry';
         const time = new Date().toLocaleTimeString();
@@ -335,7 +367,7 @@ window.app = {
     },
 
     saveEventsToStorage: function () {
-        const log = document.getElementById('eventLog');
+        const log = document.getElementById('monitorEventLog');
         const events = [];
         Array.from(log.children).slice(0, 100).forEach(entry => {
             events.push(entry.outerHTML);
@@ -348,7 +380,7 @@ window.app = {
         if (stored) {
             try {
                 const events = JSON.parse(stored);
-                const log = document.getElementById('eventLog');
+                const log = document.getElementById('monitorEventLog');
                 log.innerHTML = events.join('');
             } catch (e) {
                 console.error('Failed to load events from storage:', e);

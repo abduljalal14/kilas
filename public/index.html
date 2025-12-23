@@ -1,50 +1,185 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - WhatsApp Gateway</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>Login - Kilas WhatsApp Gateway</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        :root {
-            --bg-color: #0a0e27;
-            --card-bg: #1a1f3a;
-            --accent: #00d9ff;
-            --text: #e5e7eb;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        
+
+        :root {
+            --bg-light: #f8fafc;
+            --bg-card: #ffffff;
+            --accent-primary: #0ea5e9;
+            --accent-secondary: #06b6d4;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+            --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.1);
+            --error-bg: #fef2f2;
+            --error-border: #fecaca;
+            --error-text: #dc2626;
+            --success-bg: #f0fdf4;
+            --success-border: #bbf7d0;
+            --success-text: #16a34a;
+        }
+
         body {
             font-family: 'Inter', sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text);
-            margin: 0;
+            background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 50%, #dbeafe 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
             overflow: hidden;
-            background: radial-gradient(circle at top right, #1d2542, #0a0e27);
+            position: relative;
+        }
+
+        /* Animated background pattern */
+        body::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-image:
+                radial-gradient(circle at 25% 25%, rgba(14, 165, 233, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, rgba(6, 182, 212, 0.05) 0%, transparent 50%);
+            animation: patternShift 20s ease infinite;
+            pointer-events: none;
+        }
+
+        @keyframes patternShift {
+
+            0%,
+            100% {
+                transform: scale(1) rotate(0deg);
+            }
+
+            50% {
+                transform: scale(1.1) rotate(5deg);
+            }
+        }
+
+        .login-container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 440px;
+            padding: 2rem;
         }
 
         .login-card {
-            background: rgba(26, 31, 58, 0.8);
-            backdrop-filter: blur(10px);
-            padding: 2.5rem;
-            border-radius: 16px;
-            width: 100%;
-            max-width: 400px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-            border: 1px solid rgba(255,255,255,0.1);
+            background: var(--bg-card);
+            padding: 3rem 2.5rem;
+            border-radius: 24px;
+            box-shadow: var(--shadow-lg), 0 0 0 1px var(--border-color);
+            border: 1px solid var(--border-color);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .login-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12), 0 0 0 1px var(--border-color);
+        }
+
+        /* Logo and branding */
+        .brand-section {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        .logo-container {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .logo-container img {
+            width: 56px;
+            height: 56px;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 8px rgba(14, 165, 233, 0.2));
+        }
+
+        .brand-name {
+            font-size: 2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.5px;
+        }
+
+        .brand-tagline {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+            font-weight: 500;
         }
 
         h1 {
             text-align: center;
             margin-bottom: 2rem;
             font-weight: 700;
-            background: linear-gradient(to right, #00d9ff, #4ade80);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            font-size: 1.5rem;
+            color: var(--text-primary);
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            font-size: 0.875rem;
+            display: none;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .alert-error {
+            background: var(--error-bg);
+            color: var(--error-text);
+            border: 1px solid var(--error-border);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .alert-error i {
+            font-size: 1.125rem;
+        }
+
+        .alert-success {
+            background: var(--success-bg);
+            color: var(--success-text);
+            border: 1px solid var(--success-border);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
         }
 
         .form-group {
@@ -52,89 +187,249 @@
             position: relative;
         }
 
-        .form-group i {
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-wrapper i {
             position: absolute;
-            left: 1rem;
+            left: 1.125rem;
             top: 50%;
             transform: translateY(-50%);
-            color: #6b7280;
+            color: var(--text-secondary);
+            font-size: 1rem;
+            transition: color 0.3s;
+            z-index: 1;
         }
 
         input {
             width: 100%;
-            padding: 0.875rem 1rem 0.875rem 2.5rem;
-            background: rgba(0,0,0,0.2);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 8px;
-            color: #fff;
+            padding: 1rem 1rem 1rem 3rem;
+            background: var(--bg-light);
+            border: 1.5px solid var(--border-color);
+            border-radius: 12px;
+            color: var(--text-primary);
             font-family: inherit;
-            box-sizing: border-box;
-            transition: all 0.3s;
+            font-size: 0.9375rem;
+            transition: all 0.3s ease;
+        }
+
+        input::placeholder {
+            color: var(--text-secondary);
         }
 
         input:focus {
             outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 0 2px rgba(0, 217, 255, 0.2);
+            border-color: var(--accent-primary);
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+        }
+
+        input:focus~i {
+            color: var(--accent-primary);
         }
 
         button {
             width: 100%;
-            padding: 0.875rem;
-            background: linear-gradient(135deg, #00d9ff, #00b8d4);
-            color: #000;
+            padding: 1rem;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: #ffffff;
             border: none;
-            border-radius: 8px;
-            font-weight: 600;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 1rem;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25);
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        button:hover::before {
+            left: 100%;
         }
 
         button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 217, 255, 0.3);
+            box-shadow: 0 8px 20px rgba(14, 165, 233, 0.35);
         }
 
-        .alert {
-            padding: 0.75rem;
-            border-radius: 6px;
-            margin-bottom: 1rem;
-            font-size: 0.875rem;
-            display: none;
+        button:active {
+            transform: translateY(0);
         }
-        
-        .alert-error {
-            background: rgba(255, 107, 53, 0.2);
-            color: #ffaa8a;
-            border: 1px solid rgba(255, 107, 53, 0.3);
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .footer-text {
+            text-align: center;
+            margin-top: 2rem;
+            color: var(--text-secondary);
+            font-size: 0.8125rem;
+        }
+
+        .footer-text a {
+            color: var(--accent-primary);
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.3s;
+        }
+
+        .footer-text a:hover {
+            color: var(--accent-secondary);
+        }
+
+        /* Loading spinner */
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Decorative elements */
+        .decorative-circle {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0.1;
+        }
+
+        .circle-1 {
+            width: 300px;
+            height: 300px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            top: -150px;
+            right: -150px;
+        }
+
+        .circle-2 {
+            width: 200px;
+            height: 200px;
+            background: linear-gradient(135deg, var(--accent-secondary), var(--accent-primary));
+            bottom: -100px;
+            left: -100px;
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .login-container {
+                padding: 1rem;
+            }
+
+            .login-card {
+                padding: 2rem 1.5rem;
+            }
+
+            .brand-name {
+                font-size: 1.75rem;
+            }
         }
     </style>
 </head>
+
 <body>
-    <div class="login-card">
-        <h1>Gateway Login</h1>
-        <div id="alert" class="alert alert-error">Invalid credentials</div>
-        <form id="loginForm">
-            <div class="form-group">
-                <i class="fas fa-user"></i>
-                <input type="text" id="username" placeholder="Username" required>
+    <div class="decorative-circle circle-1"></div>
+    <div class="decorative-circle circle-2"></div>
+
+    <div class="login-container">
+        <div class="login-card">
+            <div class="brand-section">
+                <div class="logo-container">
+                    <img src="/images/logo.png" alt="Kilas Logo">
+                    <div class="brand-name">Kilas</div>
+                </div>
+                <div class="brand-tagline">WhatsApp Gateway Dashboard</div>
             </div>
-            <div class="form-group">
-                <i class="fas fa-lock"></i>
-                <input type="password" id="password" placeholder="Password" required>
+
+            <h1>Welcome Back</h1>
+
+            <div id="alert" class="alert alert-error">
+                <i class="fas fa-exclamation-circle"></i>
+                <span id="alertMessage">Invalid credentials</span>
             </div>
-            <button type="submit">Sign In</button>
-        </form>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="username" placeholder="Enter your username" required
+                            autocomplete="username">
+                        <i class="fas fa-user"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="password" placeholder="Enter your password" required
+                            autocomplete="current-password">
+                        <i class="fas fa-lock"></i>
+                    </div>
+                </div>
+
+                <button type="submit" id="submitBtn">
+                    <span id="btnText">Sign In</span>
+                </button>
+            </form>
+
+            <div class="footer-text">
+                Powered by <a href="https://github.com/google-deepmind" target="_blank">Antigravity</a>
+            </div>
+        </div>
     </div>
 
     <script>
         const form = document.getElementById('loginForm');
         const alert = document.getElementById('alert');
+        const alertMessage = document.getElementById('alertMessage');
+        const submitBtn = document.getElementById('submitBtn');
+        const btnText = document.getElementById('btnText');
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
+
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
+
+            // Hide alert
+            alert.style.display = 'none';
+
+            // Show loading state
+            submitBtn.disabled = true;
+            btnText.innerHTML = '<span class="spinner"></span>Signing in...';
 
             try {
                 const res = await fetch('/api/auth/login', {
@@ -142,21 +437,51 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
                 });
-                
+
                 const data = await res.json();
-                
+
                 if (data.success) {
                     localStorage.setItem('apiKey', data.token);
-                    window.location.href = '/dashboard';
+
+                    // Show success message
+                    alert.className = 'alert alert-success';
+                    alertMessage.textContent = 'Login successful! Redirecting...';
+                    alert.innerHTML = '<i class="fas fa-check-circle"></i><span>' + alertMessage.textContent + '</span>';
+                    alert.style.display = 'flex';
+
+                    btnText.textContent = 'Success!';
+
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 800);
                 } else {
-                    alert.textContent = data.message || 'Login failed';
-                    alert.style.display = 'block';
+                    alert.className = 'alert alert-error';
+                    alertMessage.textContent = data.message || 'Login failed. Please check your credentials.';
+                    alert.innerHTML = '<i class="fas fa-exclamation-circle"></i><span>' + alertMessage.textContent + '</span>';
+                    alert.style.display = 'flex';
+                    submitBtn.disabled = false;
+                    btnText.textContent = 'Sign In';
                 }
             } catch (err) {
-                alert.textContent = 'Connection error';
-                alert.style.display = 'block';
+                alert.className = 'alert alert-error';
+                alertMessage.textContent = 'Connection error. Please try again.';
+                alert.innerHTML = '<i class="fas fa-exclamation-circle"></i><span>' + alertMessage.textContent + '</span>';
+                alert.style.display = 'flex';
+                submitBtn.disabled = false;
+                btnText.textContent = 'Sign In';
+            }
+        });
+
+        // Auto-focus username field
+        document.getElementById('username').focus();
+
+        // Enter key support
+        document.getElementById('password').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                form.dispatchEvent(new Event('submit'));
             }
         });
     </script>
 </body>
+
 </html>
