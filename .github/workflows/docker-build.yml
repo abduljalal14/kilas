@@ -33,5 +33,5 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            dickyermawan/kilas:latest
-            dickyermawan/kilas:${{ github.ref_name }}
+            dickyermawan/kilas-app:latest
+            dickyermawan/kilas-app:${{ github.ref_name }}
