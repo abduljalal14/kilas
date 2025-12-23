@@ -1,11 +1,10 @@
-# Tahap 1: Builder
-# GANTI DARI 18 KE 20
+# Multi-stage build for smaller image size
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install dependensi build
-RUN apk add --no-cache \
+# Install build dependencies for native modules (sqlite3)
+RUN apk add --no-cache --virtual .build-deps \
     python3 \
     make \
     g++ \
@@ -13,15 +12,16 @@ RUN apk add --no-cache \
     libc-dev \
     sqlite-dev
 
+# Copy package files
 COPY package*.json ./
 
-# Tambahkan flag --no-audit agar lebih ringan di GitHub Actions
-RUN npm install --network-timeout=100000 --no-audit
+# Install dependencies (production only for smaller image)
+RUN npm install --production --network-timeout=100000
 
-COPY . .
+# Remove build dependencies to reduce image size
+RUN apk del .build-deps
 
-# Tahap 2: Production
-# GANTI JUGA DI SINI KE 20
+# Production stage
 FROM node:20-alpine
 
 WORKDIR /app
@@ -29,18 +29,32 @@ WORKDIR /app
 # Install runtime dependencies
 RUN apk add --no-cache dumb-init sqlite-libs
 
-# Salin dari builder
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app ./ 
-
-# Setup User & Permissions
+# Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001 && \
-    mkdir -p sessions media media/uploads public/images && \
-    chown -R nodejs:nodejs /app
+    adduser -S nodejs -u 1001
 
+# Copy dependencies from builder
+COPY --from=builder /app/node_modules ./node_modules
+
+# Copy application code
+COPY --chown=nodejs:nodejs . .
+
+# Create necessary directories with proper permissions
+RUN mkdir -p sessions media media/uploads public/images && \
+    chown -R nodejs:nodejs sessions media public/images
+
+# Switch to non-root user
 USER nodejs
+
+# Expose port
 EXPOSE 3000
 
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:3000/api/sessions', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
+# Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
+
+# Start application
 CMD ["node", "server.js"]
