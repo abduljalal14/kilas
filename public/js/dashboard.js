@@ -347,6 +347,13 @@ window.app = {
 
     logEvent: function (type, source, message) {
         const log = document.getElementById('monitorEventLog');
+
+        // Remove empty state if it exists
+        const emptyState = log.querySelector('div[style*="text-align: center"]');
+        if (emptyState && !emptyState.classList.contains('log-entry')) {
+            emptyState.remove();
+        }
+
         const entry = document.createElement('div');
         entry.className = 'log-entry';
         const time = new Date().toLocaleTimeString('en-US', { hour12: false });
