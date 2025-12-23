@@ -376,9 +376,9 @@
 
             <h1>Welcome Back</h1>
 
-            <div id="alert" class="alert alert-error">
+            <div id="alert" class="alert" style="display: none;">
                 <i class="fas fa-exclamation-circle"></i>
-                <span id="alertMessage">Invalid credentials</span>
+                <span id="alertMessage"></span>
             </div>
 
             <form id="loginForm">
@@ -417,6 +417,13 @@
         const alertMessage = document.getElementById('alertMessage');
         const submitBtn = document.getElementById('submitBtn');
         const btnText = document.getElementById('btnText');
+
+        // Check if user is already logged in
+        const apiKey = localStorage.getItem('apiKey');
+        if (apiKey) {
+            // User is already logged in, redirect to dashboard
+            window.location.href = '/dashboard';
+        }
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();

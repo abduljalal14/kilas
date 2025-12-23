@@ -41,7 +41,3 @@ services:
 networks:
   kirimkan-network:
     driver: bridge
-
-volumes:
-  sessions:
-  media:
