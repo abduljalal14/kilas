@@ -68,10 +68,28 @@
   <p><em>Modern login interface with gradient design</em></p>
 </div>
 
-### Dashboard
+### Live Events & Logs
 <div align="center">
-  <img src="ss/dashboard.png" alt="Kilas Dashboard" width="800">
-  <p><em>Beautiful dashboard with real-time monitoring, multi-session management, and built-in API tester</em></p>
+  <img src="ss/logs.png" alt="Live Events & Logs" width="800">
+  <p><em>Real-time event logging with WebSocket connection</em></p>
+</div>
+
+### Device Management
+<div align="center">
+  <img src="ss/devices.png" alt="Device Management" width="800">
+  <p><em>Multi-session WhatsApp device management with QR code scanner</em></p>
+</div>
+
+### API Playground
+<div align="center">
+  <img src="ss/api_playground.png" alt="API Playground" width="800">
+  <p><em>Built-in API tester to test all endpoints directly from dashboard</em></p>
+</div>
+
+### Webhook Configuration
+<div align="center">
+  <img src="ss/webhook.png" alt="Webhook Configuration" width="800">
+  <p><em>Configure webhooks with selective event filtering</em></p>
 </div>
 
 ---
@@ -111,6 +129,10 @@ npm start
 git clone https://github.com/dickyermawan/kilas.git
 cd kilas
 
+# Create .env file
+cp .env.example .env
+# Edit .env with your preferred settings
+
 # Start with Docker Compose
 docker compose up -d
 
@@ -129,47 +151,118 @@ docker compose logs -f
 
 ## 🐳 Docker Deployment
 
-### Using Docker Compose
+### Option 1: Using Pre-built Image from Docker Hub (Recommended)
 
-The easiest way to deploy Kilas is using Docker Compose:
+The fastest way to deploy Kilas is using the pre-built image from Docker Hub:
+
+**1. Create `docker-compose.yml`:**
 
 ```yaml
 version: '3.8'
 
 services:
-  kilas:
-    build: .
+  kirimkan:
+    image: dickyermawan/kilas:latest
+    container_name: kirimkan-gateway
+    restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
+      - NODE_ENV=production
       - PORT=3000
       - ADMIN_USERNAME=admin
       - ADMIN_PASSWORD=admin123
+      - SESSION_DIR=/app/sessions
+      - MEDIA_DIR=/app/media
       - API_KEY=your_secret_api_key
       - CORS_ORIGIN=*
     volumes:
       - ./sessions:/app/sessions
       - ./media:/app/media
-    restart: unless-stopped
+    networks:
+      - kirimkan-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/sessions', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  kirimkan-network:
+    driver: bridge
 ```
+
+**2. Start the container:**
+
+```bash
+# Pull and start
+docker compose up -d
+
+# View logs
+docker compose logs -f
+
+# Check status
+docker compose ps
+```
+
+**3. Access the dashboard:**
+
+Open http://localhost:3000/dashboard in your browser.
+
+---
+
+### Option 2: Build from Source
+
+If you want to build the image yourself:
+
+```bash
+# Clone the repository
+git clone https://github.com/dickyermawan/kilas.git
+cd kilas
+
+# Create .env file
+cp .env.example .env
+# Edit .env with your settings
+
+# Build and start
+docker compose up -d --build
+
+# View logs
+docker compose logs -f
+```
+
+---
 
 ### Docker Commands
 
 ```bash
-# Build and start
+# Start containers
 docker compose up -d
 
 # View logs
-docker compose logs -f kilas
+docker compose logs -f
 
-# Stop container
+# Stop containers
 docker compose down
 
-# Rebuild after changes
-docker compose up -d --build
+# Restart containers
+docker compose restart
+
+# Update to latest image
+docker compose pull
+docker compose up -d
 
 # Access container shell
-docker exec -it kilas-gateway sh
+docker exec -it kirimkan-gateway sh
+
+# Remove all data (CAUTION: deletes sessions!)
+docker compose down -v
 ```
 
 ### Environment Variables
