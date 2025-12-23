@@ -3,11 +3,20 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
+# Install build dependencies for native modules (sqlite3)
+RUN apk add --no-cache --virtual .build-deps \
+    python3 \
+    make \
+    g++
+
 # Copy package files
 COPY package*.json ./
 
 # Install dependencies
 RUN npm install --production
+
+# Remove build dependencies to reduce image size
+RUN apk del .build-deps
 
 # Production stage
 FROM node:18-alpine
