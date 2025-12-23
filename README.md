@@ -161,9 +161,9 @@ The fastest way to deploy Kilas is using the pre-built image from Docker Hub:
 version: '3.8'
 
 services:
-  kirimkan:
+  kilas:
     image: dickyermawan/kilas:latest
-    container_name: kirimkan-gateway
+    container_name: kilas-gateway
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -180,7 +180,7 @@ services:
       - ./sessions:/app/sessions
       - ./media:/app/media
     networks:
-      - kirimkan-network
+      - kilas-network
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/sessions', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
       interval: 30s
@@ -194,7 +194,7 @@ services:
         max-file: "3"
 
 networks:
-  kirimkan-network:
+  kilas-network:
     driver: bridge
 ```
 
@@ -259,7 +259,7 @@ docker compose pull
 docker compose up -d
 
 # Access container shell
-docker exec -it kirimkan-gateway sh
+docker exec -it kilas-gateway sh
 
 # Remove all data (CAUTION: deletes sessions!)
 docker compose down -v
@@ -1039,7 +1039,7 @@ This project was built with the assistance of **[Antigravity](https://github.com
 
 - **Issues**: [GitHub Issues](https://github.com/dickyermawan/kilas/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/dickyermawan/kilas/discussions)
-- **Email**: your.email@example.com
+- **Email**: dikywana@gmail.com
 
 ---
 
