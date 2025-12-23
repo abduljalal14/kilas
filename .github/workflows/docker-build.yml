@@ -3,9 +3,9 @@ name: Build and Push Docker Image
 on:
   push:
     branches:
-      - main     # Berjalan setiap kali ada push ke branch main
+      - main
     tags:
-      - 'v*'      # Berjalan setiap kali Anda membuat tag versi (misal v1.0)
+      - 'v*'
 
 jobs:
   build:
@@ -13,6 +13,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # Tambahan: Setup Buildx agar build lebih stabil
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -25,7 +29,9 @@ jobs:
         with:
           context: .
           push: true
-          # Ganti 'dickyermawan' dengan username Docker Hub Anda
+          # Tambahan: Caching agar npm install tidak download dari nol terus
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: |
             dickyermawan/kilas:latest
             dickyermawan/kilas:${{ github.ref_name }}
