@@ -155,17 +155,7 @@ docker compose logs -f
 
 The fastest way to deploy Kilas is using the pre-built image from Docker Hub:
 
-**1. Create `.env` file:**
-
-```bash
-# Copy example configuration
-cp .env.example .env
-
-# Edit .env with your settings (optional)
-# Default PORT=3001, ADMIN_USERNAME=admin, ADMIN_PASSWORD=admin123
-```
-
-**2. Create `docker-compose.yml`:**
+**1. Create `docker-compose.yml`:**
 
 ```yaml
 services:
@@ -174,13 +164,13 @@ services:
     container_name: kilas-gateway
     restart: unless-stopped
     ports:
-      - "${PORT:-3001}:${PORT:-3001}"
+      - "3001:3001"
     environment:
-      - PORT=${PORT:-3001}
-      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
-      - API_KEY=${API_KEY:-admin123}
-      - CORS_ORIGIN=${CORS_ORIGIN:-*}
+      - PORT=3001
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=admin123
+      - API_KEY=admin123
+      - CORS_ORIGIN=*
     volumes:
       # Named volumes for automatic permission handling
       - sessions_data:/app/sessions
@@ -193,7 +183,7 @@ volumes:
     driver: local
 ```
 
-**3. Start the container:**
+**2. Start the container:**
 
 ```bash
 # Pull and start
@@ -206,7 +196,7 @@ docker compose logs -f
 docker compose ps
 ```
 
-**4. Access the dashboard:**
+**3. Access the dashboard:**
 
 Open http://localhost:3001/dashboard in your browser.
 
@@ -214,7 +204,7 @@ Open http://localhost:3001/dashboard in your browser.
 - Username: `admin`
 - Password: `admin123`
 
-> **Note**: Change credentials in `.env` file for production!
+> **⚠️ IMPORTANT**: Change `ADMIN_PASSWORD` and `API_KEY` in docker-compose.yml for production!
 
 ---
 
