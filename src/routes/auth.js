@@ -7,7 +7,7 @@ router.post('/login', (req, res) => {
     if (username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) {
         res.json({
             success: true,
-            token: process.env.ADMIN_PASSWORD, // Using password as simple token/API key
+            token: process.env.API_KEY || process.env.ADMIN_PASSWORD, // Use API_KEY for authentication
             user: { username }
         });
     } else {
