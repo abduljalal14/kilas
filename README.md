@@ -164,8 +164,9 @@ services:
     container_name: kilas-gateway
     restart: unless-stopped
     ports:
-      - "3001:3000"
+      - "${PORT:-3001}:${PORT:-3001}"
     environment:
+      - PORT=${PORT:-3001}
       - ADMIN_USERNAME=admin
       - ADMIN_PASSWORD=change_this_password
       - API_KEY=change_this_api_key

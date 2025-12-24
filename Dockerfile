@@ -49,7 +49,7 @@ RUN mkdir -p /app/sessions /app/media /app/media/uploads /app/public/images && \
 USER nodejs
 
 # Expose port
-EXPOSE 3000
+EXPOSE 3001
 
 
 # Start the application

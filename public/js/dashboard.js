@@ -279,44 +279,46 @@ window.app = {
             const apiSessionSelect = document.getElementById('apiSession');
 
             if (res.data.length === 0) {
-                list.innerHTML = '<div class="empty-state">No sessions created yet.</div>';
-                qsSelect.innerHTML = '<option value="">Select session...</option>';
-                apiSessionSelect.innerHTML = '<option value="">Select session...</option>';
+                if (list) list.innerHTML = '<div class="empty-state">No sessions created yet.</div>';
+                if (qsSelect) qsSelect.innerHTML = '<option value="">Select session...</option>';
+                if (apiSessionSelect) apiSessionSelect.innerHTML = '<option value="">Select session...</option>';
                 // Update stats to show 0/0
                 this.updateStatsData([]);
                 return;
             }
 
             // Build Sessions List with new device-card structure
-            list.innerHTML = res.data.map(session => `
-                <div class="device-card" data-id="${session.id}">
-                    <div class="device-header">
-                        <div class="device-avatar">
-                            <i class="fab fa-whatsapp"></i>
+            if (list) {
+                list.innerHTML = res.data.map(session => `
+                    <div class="device-card" data-id="${session.id}">
+                        <div class="device-header">
+                            <div class="device-avatar">
+                                <i class="fab fa-whatsapp"></i>
+                            </div>
+                            <div class="device-info">
+                                <div class="device-name">${session.id}</div>
+                                <div class="device-id">${session.user ? session.user.id.split(':')[0] : 'Not connected'}</div>
+                            </div>
                         </div>
-                        <div class="device-info">
-                            <div class="device-name">${session.id}</div>
-                            <div class="device-id">${session.user ? session.user.id.split(':')[0] : 'Not connected'}</div>
+                        <div class="device-status-row">
+                            <span>Status</span>
+                            <span class="device-status-badge ${session.status}">${session.status.toUpperCase()}</span>
+                        </div>
+                        <div class="device-status-row" style="border: none;">
+                            <span>Uptime</span>
+                            <span class="device-uptime">-</span>
+                        </div>
+                        <div class="device-actions">
+                            <button class="btn btn-${session.status === 'connected' ? 'secondary' : 'success'} btn-sm" onclick="window.app.showQR('${session.id}')" style="flex: 1;">
+                                ${session.status === 'connected' ? 'Reconnect' : 'Scan QR Code'}
+                            </button>
+                            <button class="btn btn-danger btn-sm" onclick="window.app.deleteSession('${session.id}')" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
                         </div>
                     </div>
-                    <div class="device-status-row">
-                        <span>Status</span>
-                        <span class="device-status-badge ${session.status}">${session.status.toUpperCase()}</span>
-                    </div>
-                    <div class="device-status-row" style="border: none;">
-                        <span>Uptime</span>
-                        <span class="device-uptime">-</span>
-                    </div>
-                    <div class="device-actions">
-                        <button class="btn btn-${session.status === 'connected' ? 'secondary' : 'success'} btn-sm" onclick="window.app.showQR('${session.id}')" style="flex: 1;">
-                            ${session.status === 'connected' ? 'Reconnect' : 'Scan QR Code'}
-                        </button>
-                        <button class="btn btn-danger btn-sm" onclick="window.app.deleteSession('${session.id}')" title="Delete">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            `).join('');
+                `).join('');
+            }
 
             // Build Quick Send Select (only connected sessions)
             const connected = res.data.filter(s => s.status === 'connected');

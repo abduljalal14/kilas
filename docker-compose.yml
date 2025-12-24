@@ -7,10 +7,10 @@ services:
     container_name: kilas-gateway
     restart: unless-stopped
     ports:
-      - "3001:3000"
+      - "${PORT:-3001}:${PORT:-3001}"
     environment:
       - NODE_ENV=production
-      - PORT=3000
+      - PORT=${PORT:-3001}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
       - SESSION_DIR=/app/sessions
