@@ -155,7 +155,17 @@ docker compose logs -f
 
 The fastest way to deploy Kilas is using the pre-built image from Docker Hub:
 
-**1. Create `docker-compose.yml`:**
+**1. Create `.env` file:**
+
+```bash
+# Copy example configuration
+cp .env.example .env
+
+# Edit .env with your settings (optional)
+# Default PORT=3001, ADMIN_USERNAME=admin, ADMIN_PASSWORD=admin123
+```
+
+**2. Create `docker-compose.yml`:**
 
 ```yaml
 services:
@@ -167,15 +177,23 @@ services:
       - "${PORT:-3001}:${PORT:-3001}"
     environment:
       - PORT=${PORT:-3001}
-      - ADMIN_USERNAME=admin
-      - ADMIN_PASSWORD=change_this_password
-      - API_KEY=change_this_api_key
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+      - API_KEY=${API_KEY:-admin123}
+      - CORS_ORIGIN=${CORS_ORIGIN:-*}
     volumes:
-      - ./sessions:/app/sessions
-      - ./media:/app/media
+      # Named volumes for automatic permission handling
+      - sessions_data:/app/sessions
+      - media_data:/app/media
+
+volumes:
+  sessions_data:
+    driver: local
+  media_data:
+    driver: local
 ```
 
-**2. Start the container:**
+**3. Start the container:**
 
 ```bash
 # Pull and start
@@ -188,9 +206,15 @@ docker compose logs -f
 docker compose ps
 ```
 
-**3. Access the dashboard:**
+**4. Access the dashboard:**
 
 Open http://localhost:3001/dashboard in your browser.
+
+**Default credentials:**
+- Username: `admin`
+- Password: `admin123`
+
+> **Note**: Change credentials in `.env` file for production!
 
 ---
 
@@ -205,13 +229,81 @@ cd kilas
 
 # Create .env file
 cp .env.example .env
-# Edit .env with your settings
+# Edit .env with your settings (PORT=3001 by default)
 
 # Build and start
 docker compose up -d --build
 
 # View logs
 docker compose logs -f
+```
+
+---
+
+### Configuration
+
+All settings are configured via `.env` file:
+
+```bash
+# Server Configuration
+PORT=3001  # Default port for both host and container
+
+# Admin Credentials
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin123
+
+# API Authentication
+API_KEY=admin123
+
+# CORS Configuration
+CORS_ORIGIN=*
+```
+
+**To change port**: Edit `PORT` in `.env` and restart:
+```bash
+docker compose down
+docker compose up -d
+```
+
+---
+
+### Data Persistence
+
+Session and media data are stored in **named volumes**:
+- `sessions_data`: WhatsApp session files
+- `media_data`: Uploaded media files
+
+**Benefits**:
+- ✅ Automatic permission handling (no manual `chown` needed)
+- ✅ Data persists across container restarts
+- ✅ Data persists even if container is removed
+- ✅ Works on all platforms (Windows, Linux, Mac)
+
+**Data is safe during**:
+```bash
+docker compose restart  # ✅ Data preserved
+docker compose down && docker compose up -d  # ✅ Data preserved
+docker compose pull && docker compose up -d  # ✅ Data preserved
+```
+
+**Data will be lost if**:
+```bash
+docker compose down -v  # ❌ Removes volumes (don't use -v flag!)
+docker volume rm kilas_sessions_data  # ❌ Manually deletes volume
+```
+
+---
+
+### Backup & Restore
+
+**Backup sessions:**
+```bash
+docker run --rm -v kilas_sessions_data:/data -v $(pwd):/backup alpine tar czf /backup/sessions-backup.tar.gz -C /data .
+```
+
+**Restore sessions:**
+```bash
+docker run --rm -v kilas_sessions_data:/data -v $(pwd):/backup alpine tar xzf /backup/sessions-backup.tar.gz -C /data
 ```
 
 ---
