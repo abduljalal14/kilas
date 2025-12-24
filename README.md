@@ -158,8 +158,6 @@ The fastest way to deploy Kilas is using the pre-built image from Docker Hub:
 **1. Create `docker-compose.yml`:**
 
 ```yaml
-version: '3.8'
-
 services:
   kilas:
     image: dickyermawan/kilas:latest
@@ -168,34 +166,12 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=production
-      - PORT=3000
       - ADMIN_USERNAME=admin
-      - ADMIN_PASSWORD=admin123
-      - SESSION_DIR=/app/sessions
-      - MEDIA_DIR=/app/media
-      - API_KEY=your_secret_api_key
-      - CORS_ORIGIN=*
+      - ADMIN_PASSWORD=change_this_password
+      - API_KEY=change_this_api_key
     volumes:
       - ./sessions:/app/sessions
       - ./media:/app/media
-    networks:
-      - kilas-network
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/sessions', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-networks:
-  kilas-network:
-    driver: bridge
 ```
 
 **2. Start the container:**
