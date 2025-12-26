@@ -194,11 +194,14 @@ services:
       # Named volumes for automatic permission handling
       - sessions_data:/app/sessions
       - media_data:/app/media
+      - db_data:/app/data
 
 volumes:
   sessions_data:
     driver: local
   media_data:
+    driver: local
+  db_data:
     driver: local
 ```
 
@@ -278,9 +281,10 @@ docker compose up -d
 
 ### Data Persistence
 
-Session and media data are stored in **named volumes**:
+Session, media, and database data are stored in **named volumes**:
 - `sessions_data`: WhatsApp session files
 - `media_data`: Uploaded media files
+- `db_data`: SQLite database (outgoing messages, webhook history, live events)
 
 **Benefits**:
 - ✅ Automatic permission handling (no manual `chown` needed)
