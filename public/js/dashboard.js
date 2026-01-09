@@ -110,26 +110,35 @@ window.app = {
             this.updateLastWebhookTime();
         },
 
-        updateLastWebhookTime: function () {
+        updateLastWebhookTime: async function () {
             const el = document.getElementById('statLastWebhook');
             if (!el) return;
 
-            if (!this.lastWebhookTime) {
+            try {
+                // Fetch latest webhook from SQLite database
+                const response = await window.app.apiCall('/api/logs/webhook?limit=1');
+                if (response && response.success && response.data && response.data.length > 0) {
+                    const latestWebhook = response.data[0];
+                    const webhookTime = new Date(latestWebhook.created_at);
+
+                    const now = new Date();
+                    const diff = Math.floor((now - webhookTime) / 1000);
+
+                    if (diff < 60) {
+                        el.textContent = 'Just now';
+                    } else if (diff < 3600) {
+                        el.textContent = `${Math.floor(diff / 60)} min ago`;
+                    } else if (diff < 86400) {
+                        el.textContent = `${Math.floor(diff / 3600)}h ago`;
+                    } else {
+                        el.textContent = 'Yesterday';
+                    }
+                } else {
+                    el.textContent = 'Never';
+                }
+            } catch (e) {
+                console.error('Failed to load last webhook time:', e);
                 el.textContent = 'Never';
-                return;
-            }
-
-            const now = new Date();
-            const diff = Math.floor((now - this.lastWebhookTime) / 1000);
-
-            if (diff < 60) {
-                el.textContent = 'Just now';
-            } else if (diff < 3600) {
-                el.textContent = `${Math.floor(diff / 60)} min ago`;
-            } else if (diff < 86400) {
-                el.textContent = `${Math.floor(diff / 3600)}h ago`;
-            } else {
-                el.textContent = 'Yesterday';
             }
         },
 
