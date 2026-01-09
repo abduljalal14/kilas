@@ -95,15 +95,52 @@ window.app = {
             this.updateUI();
         },
 
-        updateUI: function () {
-            // Update Messages Today
-            const msgEl = document.getElementById('statMessagesToday');
-            if (msgEl) msgEl.textContent = this.messagesCount;
+        updateUI: async function () {
+            // Update Messages Today - fetch from SQLite
+            try {
+                // Get today's date in configured timezone
+                const timezone = window.appTimezone || 'Asia/Jakarta';
+                const todayInTimezone = new Date().toLocaleDateString('en-CA', { timeZone: timezone }); // YYYY-MM-DD format
 
-            // Update Webhook Success with highlighted primary number
-            const webhookEl = document.getElementById('statWebhookSuccess');
-            if (webhookEl) {
-                webhookEl.innerHTML = `<span style="font-size: 2rem; font-weight: 700;">${this.webhookSuccess}</span> <span style="font-size: 1.2rem; opacity: 0.6;">/ ${this.webhookTotal}</span>`;
+                const response = await window.app.apiCall('/api/logs/outgoing?limit=1000');
+                if (response && response.success && response.data) {
+                    // Count messages from today (considering timezone)
+                    const todayCount = response.data.filter(msg => {
+                        // Parse SQLite UTC timestamp and convert to configured timezone
+                        let msgDate;
+                        const timestamp = msg.created_at;
+                        if (typeof timestamp === 'string' && !timestamp.includes('T') && !timestamp.includes('Z')) {
+                            // SQLite format - treat as UTC
+                            const utcDate = new Date(timestamp.replace(' ', 'T') + 'Z');
+                            msgDate = utcDate.toLocaleDateString('en-CA', { timeZone: timezone });
+                        } else {
+                            const date = new Date(timestamp);
+                            msgDate = date.toLocaleDateString('en-CA', { timeZone: timezone });
+                        }
+                        return msgDate === todayInTimezone;
+                    }).length;
+
+                    const msgEl = document.getElementById('statMessagesToday');
+                    if (msgEl) msgEl.textContent = todayCount;
+                }
+            } catch (e) {
+                console.error('Failed to load messages today:', e);
+            }
+
+            // Update Webhook Success - fetch from SQLite
+            try {
+                const response = await window.app.apiCall('/api/logs/webhook?limit=1000');
+                if (response && response.success && response.data) {
+                    const total = response.data.length;
+                    const success = response.data.filter(w => w.success === 1).length;
+
+                    const webhookEl = document.getElementById('statWebhookSuccess');
+                    if (webhookEl) {
+                        webhookEl.innerHTML = `<span style="font-size: 2rem; font-weight: 700;">${success}</span> <span style="font-size: 1.2rem; opacity: 0.6;">/ ${total}</span>`;
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load webhook stats:', e);
             }
 
             // Update Last Webhook
