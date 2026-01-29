@@ -24,6 +24,27 @@ router.get('/:id', async (req, res) => {
     }
 });
 
+// Get QR code for a session
+router.get('/:id/qr', async (req, res) => {
+    const sessionId = req.params.id;
+    const qrImage = req.sessionManager.getQRCode(sessionId);
+    
+    if (qrImage) {
+        res.json({
+            success: true,
+            data: {
+                sessionId: sessionId,
+                qr: qrImage // Data URL (base64 image)
+            }
+        });
+    } else {
+        res.status(404).json({
+            success: false,
+            message: 'QR code not available for this session. Session may need to be created first.'
+        });
+    }
+});
+
 // Create new session
 router.post('/create', async (req, res) => {
     const { sessionId } = req.body;

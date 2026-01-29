@@ -978,6 +978,28 @@ print_r(json_decode($response, true));
 
 ---
 
+#### Get QR
+
+**Endpoint:** `GET /api/sessions/:id/qr`
+
+**PHP Example:**
+```php
+<?php
+$sessionId = 'MySession';
+
+$ch = curl_init("http://localhost:3000/api/sessions/$sessionId/qr");
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    'x-api-key: your_secret_api_key'
+]);
+
+$response = curl_exec($ch);
+curl_close($ch);
+
+print_r(json_decode($response, true));
+?>
+```
+
 #### Delete Session
 
 **Endpoint:** `DELETE /api/sessions/:id`

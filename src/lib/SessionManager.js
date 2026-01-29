@@ -158,6 +158,17 @@ class SessionManager {
         }
         return null;
     }
-}
+
+    /**
+     * Get QR code image for a session
+     * Returns null if session not found or QR not available
+     */
+    getQRCode(sessionId) {
+        const handler = this.sessions.get(sessionId);
+        if (handler) {
+            return handler.getQRCode();
+        }
+        return null;
+    }}
 
 module.exports = SessionManager;

@@ -18,6 +18,7 @@ class BaileysHandler {
         this.socket = null;
         this.user = null;
         this.qr = null;
+        this.qrImage = null; // Store QR image (Data URL) for API retrieval
         this.retryCount = 0;
         this.maxRetries = 5;
         this.isReconnecting = false;
@@ -54,6 +55,14 @@ class BaileysHandler {
                 eventData: eventData
             }).catch(err => this.globalLogger.error('Failed to log event to DB:', err));
         }
+    }
+
+    /**
+     * Get current QR code image (Data URL format)
+     * Returns null if QR code is not available
+     */
+    getQRCode() {
+        return this.qrImage;
     }
 
     async start() {
@@ -111,6 +120,7 @@ class BaileysHandler {
                     // Generate QR image
                     try {
                         const qrImage = await QRCode.toDataURL(qr);
+                        this.qrImage = qrImage; // Store for API retrieval
                         // Emit to subscribed room
                         this.io.to(`session:${this.sessionId}`).emit('session:qr', { sessionId: this.sessionId, qr: qrImage });
                         // Also emit globally for reliability (dashboard may not have subscribed yet)
