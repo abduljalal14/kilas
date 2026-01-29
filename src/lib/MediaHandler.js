@@ -1,7 +1,9 @@
-const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const path = require('path');
 const pino = require('pino');
+
+// Lazy-loaded baileys function
+let downloadMediaMessage;
 
 class MediaHandler {
     constructor(logger) {
@@ -14,6 +16,12 @@ class MediaHandler {
     }
 
     async saveMedia(message) {
+        // Lazy load baileys on first use
+        if (!downloadMediaMessage) {
+            const baileys = await import('@whiskeysockets/baileys');
+            downloadMediaMessage = baileys.downloadMediaMessage;
+        }
+
         if (!message) return null;
 
         // Check if message has media

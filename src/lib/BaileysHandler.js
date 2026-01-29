@@ -1,9 +1,11 @@
-const { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const path = require('path');
 const fs = require('fs');
 const QRCode = require('qrcode');
 const MediaHandler = require('./MediaHandler');
+
+// Lazy-loaded baileys modules
+let makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion;
 
 class BaileysHandler {
     constructor(sessionId, io, logger, webhookSender = null, db = null) {
@@ -55,6 +57,15 @@ class BaileysHandler {
     }
 
     async start() {
+        // Lazy load baileys on first use
+        if (!makeWASocket) {
+            const baileys = await import('@whiskeysockets/baileys');
+            makeWASocket = baileys.makeWASocket;
+            useMultiFileAuthState = baileys.useMultiFileAuthState;
+            DisconnectReason = baileys.DisconnectReason;
+            fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion;
+        }
+
         // Prevent multiple simultaneous start attempts
         if (this.isReconnecting) {
             this.globalLogger.info(`Session ${this.sessionId} is already reconnecting, skipping...`);
