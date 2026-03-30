@@ -115,8 +115,24 @@ router.post('/:sessionId', async (req, res) => {
     try {
         const { sessionId } = req.params;
         const { webhookUrl, events } = req.body;
+        const normalizedWebhookUrl = typeof webhookUrl === 'string' ? webhookUrl.trim() : '';
 
-        if (!webhookUrl || typeof webhookUrl !== 'string') {
+        // Allow sessions to exist without webhook configuration.
+        // Empty or missing webhookUrl means webhook is disabled for the session.
+        if (!normalizedWebhookUrl) {
+            req.sessionManager.setWebhookConfig(sessionId, null);
+
+            return res.json({
+                success: true,
+                message: 'Webhook disabled successfully',
+                sessionId,
+                webhookUrl: null,
+                events: [],
+                enabled: false
+            });
+        }
+
+        if (typeof webhookUrl !== 'string') {
             return res.status(400).json({
                 success: false,
                 message: 'webhookUrl is required and must be a string'
@@ -146,7 +162,7 @@ router.post('/:sessionId', async (req, res) => {
             : [];
 
         req.sessionManager.setWebhookConfig(sessionId, {
-            webhookUrl,
+            webhookUrl: normalizedWebhookUrl,
             events: selectedEvents
         });
 
@@ -154,7 +170,7 @@ router.post('/:sessionId', async (req, res) => {
             success: true,
             message: 'Webhook configured successfully',
             sessionId,
-            webhookUrl,
+            webhookUrl: normalizedWebhookUrl,
             events: selectedEvents
         });
     } catch (error) {

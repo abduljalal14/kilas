@@ -179,16 +179,8 @@ const WebhookManager = {
                 return Toast.warning('Please select a session');
             }
 
-            if (callbackUrls.length === 0) {
-                return Toast.warning('Please enter at least one callback URL');
-            }
-
-            if (events.length === 0) {
-                return Toast.warning('Please select at least one event');
-            }
-
             const config = {
-                webhookUrl: callbackUrls[0], // Use first URL only
+                webhookUrl: callbackUrls[0] || '',
                 events,
                 timezone
             };
@@ -208,7 +200,9 @@ const WebhookManager = {
             btn.disabled = false;
 
             if (res && res.success) {
-                Toast.success('Webhook configuration saved successfully!');
+                Toast.success(callbackUrls.length > 0
+                    ? 'Webhook configuration saved successfully!'
+                    : 'Webhook disabled for this session!');
             } else {
                 Toast.error('Failed to save webhook configuration');
             }

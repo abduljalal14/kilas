@@ -721,10 +721,6 @@ window.app = {
                 this.showAlert('Please select a session', 'warning');
                 return;
             }
-            if (!webhookUrl) {
-                this.showAlert('Please enter a webhook URL', 'warning');
-                return;
-            }
 
             // Get selected events
             const selectedEvents = Array.from(document.querySelectorAll('input[name="webhookEvent"]:checked'))
@@ -736,8 +732,17 @@ window.app = {
                     events: selectedEvents
                 });
                 if (res.success) {
-                    this.showAlert(`Webhook saved with ${selectedEvents.length} events!`, 'success');
-                    this.logEvent('info', 'Webhook', `Configured for ${sessionId} with ${selectedEvents.length} events`);
+                    const message = webhookUrl
+                        ? `Webhook saved with ${selectedEvents.length} events!`
+                        : 'Webhook disabled for this session.';
+                    this.showAlert(message, 'success');
+                    this.logEvent(
+                        'info',
+                        'Webhook',
+                        webhookUrl
+                            ? `Configured for ${sessionId} with ${selectedEvents.length} events`
+                            : `Disabled for ${sessionId}`
+                    );
                 } else {
                     this.showAlert('Failed to save webhook: ' + res.message, 'error');
                 }

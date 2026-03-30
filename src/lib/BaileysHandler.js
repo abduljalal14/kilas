@@ -19,6 +19,7 @@ class BaileysHandler {
         this.user = null;
         this.qr = null;
         this.qrImage = null; // Store QR image (Data URL) for API retrieval
+        this.contacts = {};
         this.retryCount = 0;
         this.maxRetries = 5;
         this.isReconnecting = false;
@@ -176,6 +177,20 @@ class BaileysHandler {
             // Handle Creds Update
             this.socket.ev.on('creds.update', saveCreds);
 
+            // Cache contacts from history sync so they can be reused by routes.
+            this.socket.ev.on('messaging-history.set', async ({ contacts }) => {
+                if (Array.isArray(contacts)) {
+                    contacts.forEach(contact => {
+                        if (contact?.id) {
+                            this.contacts[contact.id] = {
+                                ...(this.contacts[contact.id] || {}),
+                                ...contact
+                            };
+                        }
+                    });
+                }
+            });
+
             // Handle Messages Upsert
             this.socket.ev.on('messages.upsert', async (m) => {
                 if (m.type === 'notify') {
@@ -325,11 +340,36 @@ class BaileysHandler {
 
             // Handle Contacts Upsert
             this.socket.ev.on('contacts.upsert', async (contacts) => {
+                if (Array.isArray(contacts)) {
+                    contacts.forEach(contact => {
+                        if (contact?.id) {
+                            this.contacts[contact.id] = {
+                                ...(this.contacts[contact.id] || {}),
+                                ...contact
+                            };
+                        }
+                    });
+                }
+
                 if (this.webhookSender) {
                     const result = await this.webhookSender.send(this.sessionId, 'contacts.upsert', contacts);
                     if (result) {
                         this.io.emit('webhook:sent', result);
                     }
+                }
+            });
+
+            // Keep contact cache updated when contact metadata changes.
+            this.socket.ev.on('contacts.update', async (contacts) => {
+                if (Array.isArray(contacts)) {
+                    contacts.forEach(contact => {
+                        if (contact?.id) {
+                            this.contacts[contact.id] = {
+                                ...(this.contacts[contact.id] || {}),
+                                ...contact
+                            };
+                        }
+                    });
                 }
             });
 
