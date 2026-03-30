@@ -33,9 +33,43 @@ window.formatTime = function (dateString) {
 };
 
 const WebhookManager = {
+    defaultMessageUpsertChatTypes: ['private', 'group'],
+
     init: function () {
         this.bindEvents();
         this.loadConfig();
+    },
+
+    getMessagesUpsertCheckbox: function () {
+        return document.querySelector('.webhook-event[value="messages.upsert"]');
+    },
+
+    syncMessagesUpsertChatTypeVisibility: function () {
+        const container = document.getElementById('messagesUpsertChatTypeSettings');
+        const messagesUpsertCheckbox = this.getMessagesUpsertCheckbox();
+
+        if (!container || !messagesUpsertCheckbox) return;
+
+        container.style.display = messagesUpsertCheckbox.checked ? 'block' : 'none';
+    },
+
+    getSelectedChatTypes: function () {
+        const selected = Array.from(document.querySelectorAll('.webhook-chat-type:checked'))
+            .map(cb => cb.value);
+
+        return selected.length > 0
+            ? selected
+            : [...this.defaultMessageUpsertChatTypes];
+    },
+
+    setSelectedChatTypes: function (chatTypes) {
+        const selectedChatTypes = Array.isArray(chatTypes) && chatTypes.length > 0
+            ? chatTypes
+            : this.defaultMessageUpsertChatTypes;
+
+        document.querySelectorAll('.webhook-chat-type').forEach(cb => {
+            cb.checked = selectedChatTypes.includes(cb.value);
+        });
     },
 
     bindEvents: function () {
@@ -52,6 +86,7 @@ const WebhookManager = {
                 checkboxes.forEach(cb => {
                     cb.checked = e.target.checked;
                 });
+                this.syncMessagesUpsertChatTypeVisibility();
             });
         }
 
@@ -62,6 +97,21 @@ const WebhookManager = {
                 const allChecked = Array.from(eventCheckboxes).every(checkbox => checkbox.checked);
                 if (selectAllCheckbox) {
                     selectAllCheckbox.checked = allChecked;
+                }
+
+                if (cb.value === 'messages.upsert') {
+                    this.syncMessagesUpsertChatTypeVisibility();
+                }
+            });
+        });
+
+        const chatTypeCheckboxes = document.querySelectorAll('.webhook-chat-type');
+        chatTypeCheckboxes.forEach(cb => {
+            cb.addEventListener('change', () => {
+                const checkedCount = document.querySelectorAll('.webhook-chat-type:checked').length;
+                if (checkedCount === 0) {
+                    cb.checked = true;
+                    Toast.warning('Pilih minimal satu chat type untuk messages.upsert');
                 }
             });
         });
@@ -98,6 +148,12 @@ const WebhookManager = {
                 document.getElementById('webhookDomains').value = '*';
                 document.getElementById('webhookTimezone').value = 'Asia/Jakarta';
                 document.querySelectorAll('.webhook-event').forEach(cb => cb.checked = false);
+                const selectAllCheckbox = document.getElementById('selectAllEvents');
+                if (selectAllCheckbox) {
+                    selectAllCheckbox.checked = false;
+                }
+                this.setSelectedChatTypes(this.defaultMessageUpsertChatTypes);
+                this.syncMessagesUpsertChatTypeVisibility();
                 return;
             }
 
@@ -105,8 +161,8 @@ const WebhookManager = {
             if (res && res.success) {
                 // Populate callback URLs (use webhookUrl as single URL)
                 const urlsTextarea = document.getElementById('webhookUrls');
-                if (urlsTextarea && res.webhookUrl) {
-                    urlsTextarea.value = res.webhookUrl;
+                if (urlsTextarea) {
+                    urlsTextarea.value = res.webhookUrl || '';
                 }
 
                 // Populate retry checkbox (always true for now)
@@ -135,6 +191,9 @@ const WebhookManager = {
                         selectAllCheckbox.checked = allChecked;
                     }
                 }
+
+                this.setSelectedChatTypes(res.chatTypes);
+                this.syncMessagesUpsertChatTypeVisibility();
 
                 // Populate timezone (from config or default)
                 const timezoneSelect = document.getElementById('webhookTimezone');
@@ -173,6 +232,7 @@ const WebhookManager = {
             // Get selected events
             const events = Array.from(document.querySelectorAll('.webhook-event:checked'))
                 .map(cb => cb.value);
+            const chatTypes = this.getSelectedChatTypes();
 
             // Validate
             if (!sessionId) {
@@ -182,6 +242,7 @@ const WebhookManager = {
             const config = {
                 webhookUrl: callbackUrls[0] || '',
                 events,
+                chatTypes,
                 timezone
             };
 

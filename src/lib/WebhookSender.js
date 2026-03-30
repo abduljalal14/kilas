@@ -96,11 +96,12 @@ class WebhookSender {
             this.webhookConfigs.set(sessionId, {
                 webhookUrl: config.webhookUrl,
                 events: config.events || [],
+                chatTypes: config.chatTypes || ['private', 'group'],
                 timezone: config.timezone || 'Asia/Jakarta'
             });
             // Also set legacy webhook for backward compatibility
             this.webhooks.set(sessionId, config.webhookUrl);
-            this.logger.info(`Webhook config set for ${sessionId}: ${config.webhookUrl} with ${config.events?.length || 0} events, timezone: ${config.timezone || 'Asia/Jakarta'}`);
+            this.logger.info(`Webhook config set for ${sessionId}: ${config.webhookUrl} with ${config.events?.length || 0} events, chatTypes: ${(config.chatTypes || ['private', 'group']).join(', ')}, timezone: ${config.timezone || 'Asia/Jakarta'}`);
         } else {
             this.webhookConfigs.delete(sessionId);
             this.webhooks.delete(sessionId);
@@ -137,6 +138,17 @@ class WebhookSender {
             }
         }
         // If events array is empty, send all events (backward compatible)
+
+        if (eventType === 'messages.upsert' && data?.chatType) {
+            const allowedChatTypes = Array.isArray(config.chatTypes) && config.chatTypes.length > 0
+                ? config.chatTypes
+                : ['private', 'group'];
+
+            if (!allowedChatTypes.includes(data.chatType)) {
+                this.logger.debug(`messages.upsert skipped for ${sessionId}. chatType=${data.chatType}, allowed=[${allowedChatTypes.join(', ')}]`);
+                return;
+            }
+        }
 
         const payload = {
             event: eventType,

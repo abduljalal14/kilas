@@ -56,7 +56,8 @@ router.post('/create', async (req, res) => {
         const session = await req.sessionManager.createSession(sessionId);
         res.json({ success: true, message: 'Session created', data: { id: sessionId } });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        const statusCode = error.statusCode || 500;
+        res.status(statusCode).json({ success: false, message: error.message });
     }
 });
 

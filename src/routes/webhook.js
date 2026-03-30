@@ -102,6 +102,8 @@ router.get('/:sessionId', async (req, res) => {
             sessionId,
             webhookUrl: config?.webhookUrl || null,
             events: config?.events || [],
+            chatTypes: config?.chatTypes || ['private', 'group'],
+            timezone: config?.timezone || 'Asia/Jakarta',
             enabled: !!config?.webhookUrl
         });
     } catch (error) {
@@ -114,7 +116,7 @@ router.get('/:sessionId', async (req, res) => {
 router.post('/:sessionId', async (req, res) => {
     try {
         const { sessionId } = req.params;
-        const { webhookUrl, events } = req.body;
+        const { webhookUrl, events, chatTypes, timezone } = req.body;
         const normalizedWebhookUrl = typeof webhookUrl === 'string' ? webhookUrl.trim() : '';
 
         // Allow sessions to exist without webhook configuration.
@@ -128,6 +130,8 @@ router.post('/:sessionId', async (req, res) => {
                 sessionId,
                 webhookUrl: null,
                 events: [],
+                chatTypes: ['private', 'group'],
+                timezone: 'Asia/Jakarta',
                 enabled: false
             });
         }
@@ -160,10 +164,16 @@ router.post('/:sessionId', async (req, res) => {
         const selectedEvents = Array.isArray(events)
             ? events.filter(e => validEvents.includes(e))
             : [];
+        const validChatTypes = ['private', 'group'];
+        const selectedChatTypes = Array.isArray(chatTypes)
+            ? chatTypes.filter(type => validChatTypes.includes(type))
+            : validChatTypes;
 
         req.sessionManager.setWebhookConfig(sessionId, {
             webhookUrl: normalizedWebhookUrl,
-            events: selectedEvents
+            events: selectedEvents,
+            chatTypes: selectedChatTypes.length > 0 ? selectedChatTypes : validChatTypes,
+            timezone: typeof timezone === 'string' && timezone.trim() ? timezone.trim() : 'Asia/Jakarta'
         });
 
         res.json({
@@ -171,7 +181,9 @@ router.post('/:sessionId', async (req, res) => {
             message: 'Webhook configured successfully',
             sessionId,
             webhookUrl: normalizedWebhookUrl,
-            events: selectedEvents
+            events: selectedEvents,
+            chatTypes: selectedChatTypes.length > 0 ? selectedChatTypes : validChatTypes,
+            timezone: typeof timezone === 'string' && timezone.trim() ? timezone.trim() : 'Asia/Jakarta'
         });
     } catch (error) {
         req.logger.error('Error setting webhook:', error);

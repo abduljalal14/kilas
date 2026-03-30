@@ -451,15 +451,22 @@ window.app = {
 
     createSession: async function (sessionId) {
         try {
-            await this.apiCall('/api/sessions/create', 'POST', { sessionId });
+            const res = await this.apiCall('/api/sessions/create', 'POST', { sessionId });
+            
+            if (!res.success) {
+                this.showAlert(res.message || 'Failed to create session', 'error');
+                return;
+            }
+            
             this.loadSessions();
             this.logEvent('info', 'System', `Session ${sessionId} created`);
+            this.showAlert(`Session ${sessionId} created successfully`, 'success');
             // Show QR modal after creating session
             setTimeout(() => {
                 this.showQR(sessionId);
             }, 500);
         } catch (err) {
-            alert('Failed to create session: ' + err.message);
+            this.showAlert('Failed to create session: ' + err.message, 'error');
         }
     },
 
@@ -537,7 +544,7 @@ window.app = {
         }, 3000);
     },
 
-    showQR: async function (sessionId) {
+    showQR: function (sessionId) {
         const modal = document.getElementById('qrModal');
         modal.classList.add('visible');
         modal.dataset.session = sessionId;
@@ -554,15 +561,7 @@ window.app = {
             window.socket.emit('subscribe:session', sessionId);
         }
 
-        // Trigger session creation/reconnection which will emit QR
-        try {
-            await this.apiCall('/api/sessions/create', 'POST', { sessionId });
-            this.logEvent('info', sessionId, 'Waiting for QR code...');
-        } catch (err) {
-            console.error('Error creating session:', err);
-            spinner.style.display = 'none';
-            alert('Failed to create session. Check console for details.');
-        }
+        this.logEvent('info', sessionId, 'Waiting for QR code... Session status: CONNECTING');
     },
 
     updateStats: async function () {

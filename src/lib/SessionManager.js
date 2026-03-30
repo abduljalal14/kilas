@@ -31,6 +31,12 @@ class SessionManager {
 
                 // For this implementation, we will try to restore all sessions that were active
                 sessions.forEach(sessionId => {
+                    // Skip if session already exists (should not happen, but prevent duplicate initialization)
+                    if (this.sessions.has(sessionId)) {
+                        this.logger.warn(`Session ${sessionId} already loaded, skipping restore`);
+                        return;
+                    }
+                    
                     this.logger.info(`Restoring session: ${sessionId} `);
                     this.createSession(sessionId, false); // Create instance but maybe connect later?
                     // Actually, usually we want to reconnect automatically
@@ -62,11 +68,11 @@ class SessionManager {
     }
 
     async createSession(sessionId, startImmediately = true) {
+        // Check if session already exists
         if (this.sessions.has(sessionId)) {
-            this.logger.info(`Session ${sessionId} already exists, restarting...`);
-            const existingHandler = this.sessions.get(sessionId);
-            await existingHandler.logout();
-            this.sessions.delete(sessionId);
+            const error = new Error(`Session dengan ID '${sessionId}' sudah ada.`);
+            error.statusCode = 409; // Conflict status code
+            throw error;
         }
 
         // Create new session with database for event logging
