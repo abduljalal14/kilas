@@ -206,7 +206,8 @@ class BaileysHandler {
                                 type: m.type,
                                 messages: [msg], // Send only this single message
                                 isGroup: isGroup,
-                                chatType: chatType
+                                chatType: chatType,
+                                includeOwnMessages: true // Include webhook for messages from self
                             });
                             if (result) {
                                 this.globalLogger.info(`[Webhook] Sent messages.upsert: ${result.success ? 'SUCCESS' : 'FAILED'}`);

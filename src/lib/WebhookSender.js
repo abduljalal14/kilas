@@ -138,6 +138,7 @@ class WebhookSender {
 
             // Skip sending webhook if no actual message content (only stubs or protocol messages)
             // Only accept proper message types, not conversation or protocolMessage
+            // Unless includeOwnMessages is true and message is from user themselves
             const validMessageTypes = [
                 'textMessage', 'extendedTextMessage', 'imageMessage', 'videoMessage', 
                 'audioMessage', 'documentMessage', 'stickerMessage', 'reactionMessage',
@@ -147,6 +148,19 @@ class WebhookSender {
             
             const hasActualMessage = data.messages.some(msg => {
                 if (!msg.message || msg.messageStubType) return false;
+                
+                // If includeOwnMessages is enabled and message is from self, require full message structure
+                if (data.includeOwnMessages && msg.key?.fromMe === true) {
+                    // For own messages, only accept if it has complete data structure
+                    // Must have either userReceipt (read receipt) or originalSelfAuthorUserJidString (full message data)
+                    const hasUserReceipt = Array.isArray(msg.userReceipt) && msg.userReceipt.length > 0;
+                    const hasAuthorInfo = msg.originalSelfAuthorUserJidString !== undefined;
+                    
+                    // Must not be protocolMessage and must have complete structure
+                    return !msg.message.protocolMessage && (hasUserReceipt || hasAuthorInfo);
+                }
+                
+                // For incoming messages, strict validation - only valid message types
                 const hasValidType = validMessageTypes.some(type => msg.message[type]);
                 return hasValidType;
             });

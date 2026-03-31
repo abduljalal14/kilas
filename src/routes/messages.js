@@ -32,6 +32,18 @@ const getSocket = async (req, sessionId) => {
 // Send Text Message
 router.post('/send-text', async (req, res) => {
     const { sessionId, chatId, text, quotedMessageId } = req.body;
+
+    // Validate required parameters
+    if (!sessionId) {
+        return res.status(400).json({ success: false, error: 'Session ID is required' });
+    }
+    if (!chatId) {
+        return res.status(400).json({ success: false, error: 'Chat ID is required' });
+    }
+    if (!text) {
+        return res.status(400).json({ success: false, error: 'Message text is required' });
+    }
+
     const jid = chatId.includes('@') ? chatId : `${chatId}@s.whatsapp.net`;
 
     try {
