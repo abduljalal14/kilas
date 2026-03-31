@@ -137,9 +137,22 @@ class WebhookSender {
             }
 
             // Skip sending webhook if no actual message content (only stubs or protocol messages)
-            const hasActualMessage = data.messages.some(msg => msg.message && !msg.protocolMessage && !msg.messageStubType);
+            // Only accept proper message types, not conversation or protocolMessage
+            const validMessageTypes = [
+                'textMessage', 'extendedTextMessage', 'imageMessage', 'videoMessage', 
+                'audioMessage', 'documentMessage', 'stickerMessage', 'reactionMessage',
+                'pollCreationMessage', 'pollResponseMessage', 'contactMessage',
+                'locationMessage', 'liveLocationMessage', 'buttonResponseMessage'
+            ];
+            
+            const hasActualMessage = data.messages.some(msg => {
+                if (!msg.message || msg.messageStubType) return false;
+                const hasValidType = validMessageTypes.some(type => msg.message[type]);
+                return hasValidType;
+            });
+            
             if (!hasActualMessage) {
-                this.logger.debug(`Webhook skipped for ${sessionId} (${eventType}): no actual message content (only stubs/protocol messages)`);
+                this.logger.debug(`Webhook skipped for ${sessionId} (${eventType}): no valid message content`);
                 return;
             }
         }
