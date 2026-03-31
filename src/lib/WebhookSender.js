@@ -135,6 +135,13 @@ class WebhookSender {
                 this.logger.debug(`Webhook skipped for ${sessionId} (${eventType}): contains broadcast message`);
                 return;
             }
+
+            // Skip sending webhook if no actual message content (only stubs or protocol messages)
+            const hasActualMessage = data.messages.some(msg => msg.message && !msg.protocolMessage && !msg.messageStubType);
+            if (!hasActualMessage) {
+                this.logger.debug(`Webhook skipped for ${sessionId} (${eventType}): no actual message content (only stubs/protocol messages)`);
+                return;
+            }
         }
 
         // Check if this event is in the selected events list
