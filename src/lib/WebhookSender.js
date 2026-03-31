@@ -128,10 +128,13 @@ class WebhookSender {
             return; // No webhook configured
         }
 
-        // Skip sending webhook if broadcast is true
-        if (data && data.broadcast === true) {
-            this.logger.debug(`Webhook skipped for ${sessionId} (${eventType}): broadcast is true`);
-            return;
+        // Skip sending webhook if any message has broadcast flag set to true
+        if (data && data.messages && Array.isArray(data.messages)) {
+            const hasBroadcast = data.messages.some(msg => msg.broadcast === true);
+            if (hasBroadcast) {
+                this.logger.debug(`Webhook skipped for ${sessionId} (${eventType}): contains broadcast message`);
+                return;
+            }
         }
 
         // Check if this event is in the selected events list
