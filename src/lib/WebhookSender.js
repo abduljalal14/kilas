@@ -128,6 +128,12 @@ class WebhookSender {
             return; // No webhook configured
         }
 
+        // Skip sending webhook if broadcast is true
+        if (data && data.broadcast === true) {
+            this.logger.debug(`Webhook skipped for ${sessionId} (${eventType}): broadcast is true`);
+            return;
+        }
+
         // Check if this event is in the selected events list
         if (config.events && config.events.length > 0) {
             // If events array is not empty, only send if event is selected
