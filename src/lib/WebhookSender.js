@@ -132,7 +132,7 @@ class WebhookSender {
         if (data && data.messages && Array.isArray(data.messages)) {
             const hasBroadcast = data.messages.some(msg => msg.broadcast === true);
             if (hasBroadcast) {
-                this.logger.debug(`Webhook skipped for ${sessionId} (${eventType}): contains broadcast message`);
+                // this.logger.debug(`Webhook skipped for ${sessionId} (${eventType}): contains broadcast message`);
                 return;
             }
 
@@ -166,7 +166,7 @@ class WebhookSender {
             });
             
             if (!hasActualMessage) {
-                this.logger.debug(`Webhook skipped for ${sessionId} (${eventType}): no valid message content`);
+                // this.logger.debug(`Webhook skipped for ${sessionId} (${eventType}): no valid message content`);
                 return;
             }
         }
@@ -176,7 +176,7 @@ class WebhookSender {
             // If events array is not empty, only send if event is selected
             if (!config.events.includes(eventType)) {
                 // Event not selected, skip sending
-                this.logger.debug(`Event ${eventType} not in selected events for ${sessionId}. Selected: [${config.events.join(', ')}]`);
+                // this.logger.debug(`Event ${eventType} not in selected events for ${sessionId}. Selected: [${config.events.join(', ')}]`);
                 return;
             }
         }
@@ -188,7 +188,7 @@ class WebhookSender {
                 : ['private', 'group'];
 
             if (!allowedChatTypes.includes(data.chatType)) {
-                this.logger.debug(`messages.upsert skipped for ${sessionId}. chatType=${data.chatType}, allowed=[${allowedChatTypes.join(', ')}]`);
+                // this.logger.debug(`messages.upsert skipped for ${sessionId}. chatType=${data.chatType}, allowed=[${allowedChatTypes.join(', ')}]`);
                 return;
             }
         }
