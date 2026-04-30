@@ -5,7 +5,7 @@ const endpoints = {
         body: {
             "sessionId": "",
             "chatId": "628123456789",
-            "text": "Hello from Kilas Gateway!"
+            "text": "Hello from WA Gateway!"
         }
     },
     'POST /api/messages/send-image': {

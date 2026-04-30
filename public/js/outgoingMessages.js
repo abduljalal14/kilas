@@ -375,10 +375,10 @@ class OutgoingMessagesManager {
     formatTimeLocal(timestamp) {
         if (!timestamp) return '-';
 
-        // SQLite stores as UTC, convert to local
+        // Server stores as UTC, convert to local
         let date;
         if (typeof timestamp === 'string' && !timestamp.includes('T') && !timestamp.includes('Z')) {
-            // SQLite format: "YYYY-MM-DD HH:MM:SS" - treat as UTC
+            // Server format: "YYYY-MM-DD HH:MM:SS" - treat as UTC
             date = new Date(timestamp.replace(' ', 'T') + 'Z');
         } else {
             date = new Date(timestamp);

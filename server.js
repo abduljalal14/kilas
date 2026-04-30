@@ -12,7 +12,7 @@ const logger = pino({ level: 'info' });
 const authMiddleware = require('./src/middleware/auth');
 const SessionManager = require('./src/lib/SessionManager');
 const WebhookSender = require('./src/lib/WebhookSender');
-const Database = require('./src/lib/Database');
+const EventStore = require('./src/lib/EventStore');
 
 // Initialize Express
 const app = express();
@@ -32,9 +32,10 @@ const io = new Server(server, {
 
 // Initialize Webhook Sender
 const webhookSender = new WebhookSender(logger);
+const eventStore = new EventStore(logger);
 
 // Initialize Session Manager with WebhookSender
-const sessionManager = new SessionManager(io, logger, webhookSender);
+const sessionManager = new SessionManager(io, logger, webhookSender, eventStore);
 
 // Middleware
 app.use(cors(corsOptions));
@@ -50,7 +51,7 @@ app.use((req, res, next) => {
     req.io = io;
     req.logger = logger;
     req.sessionManager = sessionManager;
-    req.db = database; // Add database to request
+    req.eventStore = eventStore;
     next();
 });
 
@@ -87,48 +88,17 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: 'Internal Server Error', message: err.message });
 });
 
-// Initialize Database and Start server
+// Start server
 const PORT = process.env.PORT || 3000;
-const database = new Database(logger);
 
-// Start server after database initialization
-database.init().then(() => {
-    // Wire database to webhook sender for persistence
-    webhookSender.db = database;
-
-    // Wire database to session manager for live event logging
-    // Use setDatabase to also update all existing handlers (restored before db init)
-    sessionManager.setDatabase(database);
-
-    server.listen(PORT, () => {
-        logger.info(`Server running on port ${PORT}`);
-        logger.info(`Dashboard accessible at http://localhost:${PORT}/dashboard`);
-    });
-
-    // Schedule daily cleanup (at midnight)
-    const scheduleCleanup = () => {
-        const now = new Date();
-        const midnight = new Date(now);
-        midnight.setHours(24, 0, 0, 0);
-        const msUntilMidnight = midnight - now;
-
-        setTimeout(() => {
-            database.cleanup().catch(err => logger.error('Cleanup error:', err));
-            setInterval(() => {
-                database.cleanup().catch(err => logger.error('Cleanup error:', err));
-            }, 24 * 60 * 60 * 1000); // Every 24 hours
-        }, msUntilMidnight);
-    };
-    scheduleCleanup();
-}).catch(err => {
-    logger.error('Failed to initialize database:', err);
-    process.exit(1);
+server.listen(PORT, () => {
+    logger.info(`Server running on port ${PORT}`);
+    logger.info(`Dashboard accessible at http://localhost:${PORT}/dashboard`);
 });
 
 // Handle graceful shutdown
-process.on('SIGTERM', async () => {
+process.on('SIGTERM', () => {
     logger.info('SIGTERM signal received: closing HTTP server');
-    await database.close();
     server.close(() => {
         logger.info('HTTP server closed');
         process.exit(0);

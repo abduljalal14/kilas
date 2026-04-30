@@ -8,12 +8,12 @@ const MediaHandler = require('./MediaHandler');
 let makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion;
 
 class BaileysHandler {
-    constructor(sessionId, io, logger, webhookSender = null, db = null) {
+    constructor(sessionId, io, logger, webhookSender = null, eventStore = null) {
         this.sessionId = sessionId;
         this.io = io;
         this.globalLogger = logger;
         this.webhookSender = webhookSender;
-        this.db = db; // Database instance for event logging
+        this.eventStore = eventStore;
         this.status = 'disconnected';
         this.socket = null;
         this.user = null;
@@ -23,6 +23,7 @@ class BaileysHandler {
         this.retryCount = 0;
         this.maxRetries = 5;
         this.isReconnecting = false;
+        this.reconnectTimer = null;
         this.connectedAt = null; // Track when session connected for uptime
 
         // Setup session directory
@@ -36,9 +37,18 @@ class BaileysHandler {
     }
 
     /**
-     * Log event to both WebSocket (for real-time UI) and SQLite (for persistence)
+     * Log event to WebSocket (for real-time UI)
      */
-    logEventToDb(type, message, eventData = null) {
+    logEvent(type, message, eventData = null) {
+        if (this.eventStore) {
+            this.eventStore.add({
+                sessionId: this.sessionId,
+                eventType: type,
+                message,
+                data: eventData
+            });
+        }
+
         // Emit to WebSocket for real-time UI update
         this.io.emit('event:log', {
             type,
@@ -46,16 +56,6 @@ class BaileysHandler {
             text: message,
             timestamp: new Date()
         });
-
-        // Save to SQLite for persistence (if database available)
-        if (this.db) {
-            this.db.logEvent({
-                sessionId: this.sessionId,
-                eventType: type,
-                message: message,
-                eventData: eventData
-            }).catch(err => this.globalLogger.error('Failed to log event to DB:', err));
-        }
     }
 
     /**
@@ -95,23 +95,29 @@ class BaileysHandler {
                 printQRInTerminal: false,
                 auth: state,
                 browser: ['KirimKan Gateway', 'Chrome', '1.0.0'],
-                defaultQueryTimeoutMs: undefined // Keep connection alive
+                defaultQueryTimeoutMs: undefined, // Keep connection alive
+                keepAliveIntervalMs: 10000,
+                emitOwnEvents: true,
+                markOnlineOnConnect: true
             });
 
             // Handle Connection Update
             this.socket.ev.on('connection.update', async (update) => {
                 const { connection, lastDisconnect, qr } = update;
 
-                // Send webhook for connection update
+                // Send webhook for connection update (Fire-and-forget)
                 if (this.webhookSender) {
                     this.globalLogger.info(`[Webhook] Attempting to send connection.update for ${this.sessionId}`);
-                    const result = await this.webhookSender.send(this.sessionId, 'connection.update', update);
-                    if (result) {
-                        this.globalLogger.info(`[Webhook] Sent connection.update: ${result.success ? 'SUCCESS' : 'FAILED'}`);
-                        this.io.emit('webhook:sent', result);
-                    } else {
-                        this.globalLogger.info(`[Webhook] No result from send (likely no config or event filtered)`);
-                    }
+                    this.webhookSender.send(this.sessionId, 'connection.update', update)
+                        .then(result => {
+                            if (result) {
+                                this.globalLogger.info(`[Webhook] Sent connection.update: ${result.success ? 'SUCCESS' : 'FAILED'}`);
+                                this.io.emit('webhook:sent', result);
+                            } else {
+                                this.globalLogger.info(`[Webhook] No result from send (likely no config or event filtered)`);
+                            }
+                        })
+                        .catch(err => this.globalLogger.error(`[Webhook] Error sending connection.update for ${this.sessionId}`, err));
                 } else {
                     this.globalLogger.warn(`[Webhook] webhookSender is NULL for ${this.sessionId}`);
                 }
@@ -147,7 +153,8 @@ class BaileysHandler {
                         const delay = Math.min(1000 * Math.pow(2, this.retryCount - 1), 10000); // Exponential backoff, max 10s
                         this.globalLogger.info(`Reconnecting ${this.sessionId} in ${delay}ms (attempt ${this.retryCount}/${this.maxRetries})`);
 
-                        setTimeout(() => {
+                        this.reconnectTimer = setTimeout(() => {
+                            this.reconnectTimer = null;
                             this.start();
                         }, delay);
                     } else if (this.retryCount >= this.maxRetries) {
@@ -163,6 +170,10 @@ class BaileysHandler {
                     }
                 } else if (connection === 'open') {
                     this.isReconnecting = false;
+                    if (this.reconnectTimer) {
+                        clearTimeout(this.reconnectTimer);
+                        this.reconnectTimer = null;
+                    }
                     this.retryCount = 0; // Reset retry counter on successful connection
                     this.connectedAt = new Date(); // Set connection timestamp for uptime
                     this.globalLogger.info(`Session ${this.sessionId} connected`);
@@ -199,42 +210,45 @@ class BaileysHandler {
                         const isGroup = msg.key.remoteJid.endsWith('@g.us');
                         const chatType = isGroup ? 'group' : 'private';
 
-                        // Send webhook for EACH individual message
+                        // Send webhook for EACH individual message (Fire-and-forget)
                         if (this.webhookSender) {
                             this.globalLogger.info(`[Webhook] Attempting to send messages.upsert for ${this.sessionId}`);
-                            const result = await this.webhookSender.send(this.sessionId, 'messages.upsert', {
+                            this.webhookSender.send(this.sessionId, 'messages.upsert', {
                                 type: m.type,
                                 messages: [msg], // Send only this single message
                                 isGroup: isGroup,
                                 chatType: chatType,
                                 includeOwnMessages: true // Include webhook for messages from self
-                            });
-                            if (result) {
-                                this.globalLogger.info(`[Webhook] Sent messages.upsert: ${result.success ? 'SUCCESS' : 'FAILED'}`);
-                                this.io.emit('webhook:sent', result);
-                            } else {
-                                this.globalLogger.info(`[Webhook] No result from send (likely no config or event filtered)`);
-                            }
+                            })
+                                .then(result => {
+                                    if (result) {
+                                        this.globalLogger.info(`[Webhook] Sent messages.upsert: ${result.success ? 'SUCCESS' : 'FAILED'}`);
+                                        this.io.emit('webhook:sent', result);
+                                    } else {
+                                        this.globalLogger.info(`[Webhook] No result from send (likely no config or event filtered)`);
+                                    }
+                                })
+                                .catch(err => this.globalLogger.error(`[Webhook] Error sending messages.upsert for ${this.sessionId}`, err));
                         } else {
                             this.globalLogger.warn(`[Webhook] webhookSender is NULL for ${this.sessionId}`);
                         }
 
                         if (!msg.key.fromMe) {
                             // Try to save media
-                            const mediaPath = await this.mediaHandler.saveMedia(msg);
+                            // const mediaPath = await this.mediaHandler.saveMedia(msg);
 
                             // Emit new message event
                             this.io.to(`session:${this.sessionId}`).emit('message:received', {
                                 sessionId: this.sessionId,
                                 message: msg,
-                                media: mediaPath
+                                //media: mediaPath
                             });
 
                             // Global event for dashboard log - save to DB too
                             const from = msg.key.remoteJid.split('@')[0];
                             const type = msg.message ? Object.keys(msg.message)[0] : 'unknown';
 
-                            this.logEventToDb('message', `Msg from ${from} (${type}) ${mediaPath ? '[MEDIA SAVED]' : ''}`, { from, type, mediaPath });
+                            this.logEvent('message', `Msg from ${from} (${type})`, { from, type });
                         }
                     }
                 }
@@ -263,23 +277,7 @@ class BaileysHandler {
                     }
                 }
 
-                // Send webhook as usual
-                if (this.webhookSender) {
-                    const result = await this.webhookSender.send(this.sessionId, 'messages.update', updates);
-                    if (result) {
-                        this.io.emit('webhook:sent', result);
-                    }
-                }
-            });
-
-            // Handle Messages Delete
-            this.socket.ev.on('messages.delete', async (deletion) => {
-                if (this.webhookSender) {
-                    const result = await this.webhookSender.send(this.sessionId, 'messages.delete', deletion);
-                    if (result) {
-                        this.io.emit('webhook:sent', result);
-                    }
-                }
+                // Removed webhook send to prevent blocking
             });
 
             // Handle Message Receipt Update (read receipts when recipient has chat open)
@@ -300,44 +298,10 @@ class BaileysHandler {
                     }
                 }
 
-                // Send webhook
-                if (this.webhookSender) {
-                    const result = await this.webhookSender.send(this.sessionId, 'message-receipt.update', receipts);
-                    if (result) {
-                        this.io.emit('webhook:sent', result);
-                    }
-                }
+                // Removed webhook send to prevent blocking
             });
 
-            // Handle Presence Update
-            this.socket.ev.on('presence.update', async (presence) => {
-                if (this.webhookSender) {
-                    const result = await this.webhookSender.send(this.sessionId, 'presence.update', presence);
-                    if (result) {
-                        this.io.emit('webhook:sent', result);
-                    }
-                }
-            });
-
-            // Handle Chats Upsert
-            this.socket.ev.on('chats.upsert', async (chats) => {
-                if (this.webhookSender) {
-                    const result = await this.webhookSender.send(this.sessionId, 'chats.upsert', chats);
-                    if (result) {
-                        this.io.emit('webhook:sent', result);
-                    }
-                }
-            });
-
-            // Handle Chats Update
-            this.socket.ev.on('chats.update', async (updates) => {
-                if (this.webhookSender) {
-                    const result = await this.webhookSender.send(this.sessionId, 'chats.update', updates);
-                    if (result) {
-                        this.io.emit('webhook:sent', result);
-                    }
-                }
-            });
+            // Removed unneeded event handlers (presence, chats) to reduce load
 
             // Handle Contacts Upsert
             this.socket.ev.on('contacts.upsert', async (contacts) => {
@@ -352,12 +316,7 @@ class BaileysHandler {
                     });
                 }
 
-                if (this.webhookSender) {
-                    const result = await this.webhookSender.send(this.sessionId, 'contacts.upsert', contacts);
-                    if (result) {
-                        this.io.emit('webhook:sent', result);
-                    }
-                }
+                // Webhook disabled for contacts.upsert to prevent blocking
             });
 
             // Keep contact cache updated when contact metadata changes.
@@ -374,35 +333,7 @@ class BaileysHandler {
                 }
             });
 
-            // Handle Groups Upsert
-            this.socket.ev.on('groups.upsert', async (groups) => {
-                if (this.webhookSender) {
-                    const result = await this.webhookSender.send(this.sessionId, 'groups.upsert', groups);
-                    if (result) {
-                        this.io.emit('webhook:sent', result);
-                    }
-                }
-            });
-
-            // Handle Group Participants Update
-            this.socket.ev.on('group-participants.update', async (update) => {
-                if (this.webhookSender) {
-                    const result = await this.webhookSender.send(this.sessionId, 'group-participants.update', update);
-                    if (result) {
-                        this.io.emit('webhook:sent', result);
-                    }
-                }
-            });
-
-            // Handle Calls
-            this.socket.ev.on('call', async (calls) => {
-                if (this.webhookSender) {
-                    const result = await this.webhookSender.send(this.sessionId, 'call', calls);
-                    if (result) {
-                        this.io.emit('webhook:sent', result);
-                    }
-                }
-            });
+            // Removed unneeded event handlers (groups, calls) to reduce load
         } catch (err) {
             this.isReconnecting = false;
             this.globalLogger.error(`Error starting session ${this.sessionId}:`, err);
@@ -414,7 +345,7 @@ class BaileysHandler {
         this.status = status;
         this.io.emit('session:status', { sessionId: this.sessionId, status });
         // Also add to event log (with DB persistence)
-        this.logEventToDb('connection', `Status changed to ${status}`, { status });
+        this.logEvent('connection', `Status changed to ${status}`, { status });
     }
 
     /**
@@ -431,9 +362,36 @@ class BaileysHandler {
         }
     }
 
+    stopSocket() {
+        this.isReconnecting = false;
+        this.retryCount = 0;
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
+
+        if (this.socket) {
+            if (this.socket.ev && typeof this.socket.ev.removeAllListeners === 'function') {
+                this.socket.ev.removeAllListeners();
+            }
+            this.socket.end(undefined);
+            this.socket = null;
+        }
+    }
+
+    async restart() {
+        this.stopSocket();
+        this.updateStatus('reconnecting');
+        await this.start();
+    }
+
     async logout() {
         this.isReconnecting = false;
         this.retryCount = 0;
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
 
         if (this.socket) {
             try {

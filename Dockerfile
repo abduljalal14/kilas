@@ -3,14 +3,7 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install build dependencies for native modules (sqlite3)
-RUN apk add --no-cache \
-    python3 \
-    make \
-    g++ \
-    gcc \
-    libc-dev \
-    sqlite-dev
+    libc-dev
 
 # Copy package files
 COPY package*.json ./
@@ -27,7 +20,7 @@ LABEL description="Kilas - WhatsApp Gateway API with Baileys, Multi-session supp
 LABEL version="1.0.0"
 
 # Install runtime dependencies
-RUN apk add --no-cache wget sqlite-libs
+RUN apk add --no-cache wget
 
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \

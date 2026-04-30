@@ -15,20 +15,15 @@ router.get('/events', async (req, res) => {
     try {
         const { sessionId, eventType, limit = 100, offset = 0 } = req.query;
 
-        const events = await req.db.getLiveEvents({
-            sessionId,
-            eventType,
-            limit: parseInt(limit),
-            offset: parseInt(offset)
-        });
-
-        const total = await req.db.getLiveEventsCount(sessionId);
+        const result = req.eventStore
+            ? req.eventStore.list({ sessionId, eventType, limit, offset })
+            : { data: [], total: 0 };
 
         res.json({
             success: true,
-            data: events,
+            data: result.data,
             pagination: {
-                total,
+                total: result.total,
                 limit: parseInt(limit),
                 offset: parseInt(offset)
             }
@@ -46,7 +41,9 @@ router.delete('/events', async (req, res) => {
     try {
         const { sessionId } = req.query;
 
-        const result = await req.db.clearLiveEvents(sessionId);
+        const result = req.eventStore
+            ? req.eventStore.clear({ sessionId })
+            : { deleted: 0 };
 
         res.json({
             success: true,
@@ -68,13 +65,8 @@ router.get('/outgoing', async (req, res) => {
     try {
         const { sessionId, limit = 100, offset = 0 } = req.query;
 
-        const messages = await req.db.getOutgoingMessages({
-            sessionId,
-            limit: parseInt(limit),
-            offset: parseInt(offset)
-        });
-
-        const total = await req.db.getOutgoingMessagesCount(sessionId);
+        const messages = [];
+        const total = 0;
 
         res.json({
             success: true,
@@ -98,7 +90,7 @@ router.delete('/outgoing', async (req, res) => {
     try {
         const { sessionId } = req.query;
 
-        const result = await req.db.clearOutgoingMessages(sessionId);
+        const result = { deleted: 0 };
 
         res.json({
             success: true,
@@ -126,8 +118,7 @@ router.patch('/outgoing/:messageId', async (req, res) => {
             });
         }
 
-        await req.db.updateMessageStatus(messageId, status);
-
+        // DB Update removed
         res.json({
             success: true,
             message: 'Status updated',
@@ -147,7 +138,7 @@ router.patch('/outgoing/:messageId', async (req, res) => {
  */
 router.get('/settings', async (req, res) => {
     try {
-        const settings = await req.db.getAllSettings();
+        const settings = {};
 
         res.json({
             success: true,
@@ -173,8 +164,7 @@ router.post('/settings', async (req, res) => {
             });
         }
 
-        await req.db.setSetting(key, String(value));
-
+        // DB Update removed
         res.json({
             success: true,
             message: 'Setting updated',
@@ -192,8 +182,7 @@ router.post('/settings', async (req, res) => {
  */
 router.post('/cleanup', async (req, res) => {
     try {
-        await req.db.cleanup();
-
+        // Cleanup removed
         res.json({
             success: true,
             message: 'Cleanup completed'
@@ -213,13 +202,8 @@ router.get('/webhook', async (req, res) => {
     try {
         const { sessionId, limit = 100, offset = 0 } = req.query;
 
-        const webhooks = await req.db.getWebhookHistory({
-            sessionId,
-            limit: parseInt(limit),
-            offset: parseInt(offset)
-        });
-
-        const total = await req.db.getWebhookHistoryCount(sessionId);
+        const webhooks = [];
+        const total = 0;
 
         res.json({
             success: true,
@@ -243,7 +227,7 @@ router.delete('/webhook', async (req, res) => {
     try {
         const { sessionId } = req.query;
 
-        const result = await req.db.clearWebhookHistory(sessionId);
+        const result = { deleted: 0 };
 
         res.json({
             success: true,

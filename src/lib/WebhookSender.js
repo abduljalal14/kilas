@@ -3,9 +3,8 @@ const fs = require('fs');
 const path = require('path');
 
 class WebhookSender {
-    constructor(logger, db = null) {
+    constructor(logger) {
         this.logger = logger;
-        this.db = db; // Database instance for persistence
         this.webhooks = new Map(); // sessionId -> webhookUrl (legacy)
         this.webhookConfigs = new Map(); // sessionId -> { webhookUrl, events: [] }
 
@@ -140,7 +139,7 @@ class WebhookSender {
             // Only accept proper message types, not conversation or protocolMessage
             // Unless includeOwnMessages is true and message is from user themselves
             const validMessageTypes = [
-                'textMessage', 'extendedTextMessage', 'imageMessage', 'videoMessage', 
+                'conversation', 'textMessage', 'extendedTextMessage', 'imageMessage', 'videoMessage', 
                 'audioMessage', 'documentMessage', 'stickerMessage', 'reactionMessage',
                 'pollCreationMessage', 'pollResponseMessage', 'contactMessage',
                 'locationMessage', 'liveLocationMessage', 'buttonResponseMessage'
@@ -227,19 +226,6 @@ class WebhookSender {
                 response: response.data // Include response body
             };
 
-            // Log to SQLite if database is available
-            if (this.db) {
-                this.db.logWebhook({
-                    sessionId: sessionId,
-                    eventType: eventType,
-                    webhookUrl: config.webhookUrl,
-                    success: true,
-                    statusCode: response.status,
-                    payload: payload,
-                    response: response.data,
-                    error: null
-                }).catch(err => this.logger.error('Failed to log webhook:', err));
-            }
 
             return result;
         } catch (error) {
@@ -256,19 +242,6 @@ class WebhookSender {
                 response: error.response?.data || null // Include error response if available
             };
 
-            // Log to SQLite if database is available
-            if (this.db) {
-                this.db.logWebhook({
-                    sessionId: sessionId,
-                    eventType: eventType,
-                    webhookUrl: config.webhookUrl,
-                    success: false,
-                    statusCode: error.response?.status || null,
-                    payload: payload,
-                    response: error.response?.data || null,
-                    error: error.message
-                }).catch(err => this.logger.error('Failed to log webhook:', err));
-            }
 
             return result;
         }

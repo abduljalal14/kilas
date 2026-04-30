@@ -58,7 +58,7 @@ class MediaHandler {
             }
 
             const filePath = path.join(fileDir, filename);
-            fs.writeFileSync(filePath, buffer);
+            await fs.promises.writeFile(filePath, buffer);
 
             return filePath;
         } catch (err) {

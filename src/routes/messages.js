@@ -64,20 +64,6 @@ router.post('/send-text', async (req, res) => {
 
         const result = await socket.sendMessage(jid, { text }, messageOptions);
 
-        // Log to database
-        if (req.db) {
-            req.db.logOutgoingMessage({
-                sessionId,
-                recipient: jid,
-                messageType: 'text',
-                content: text,
-                messageId: result?.key?.id,
-                apiEndpoint: '/api/messages/send-text',
-                apiStatus: 200,
-                apiResponse: { success: true }
-            }).catch(err => req.logger.error('DB log error:', err));
-        }
-
         // Emit for real-time UI update
         req.io.emit('outgoing:message', {
             session_id: sessionId,
@@ -93,19 +79,6 @@ router.post('/send-text', async (req, res) => {
 
         res.json({ success: true, message: 'Message sent', messageId: result?.key?.id });
     } catch (error) {
-        // Log failed attempt to database
-        if (req.db) {
-            req.db.logOutgoingMessage({
-                sessionId,
-                recipient: jid,
-                messageType: 'text',
-                content: text,
-                apiEndpoint: '/api/messages/send-text',
-                apiStatus: 500,
-                error: error.message
-            }).catch(err => req.logger.error('DB log error:', err));
-        }
-
         res.status(500).json({ success: false, message: error.message });
     }
 });
@@ -155,39 +128,11 @@ router.post('/send-image', upload.single('image'), async (req, res) => {
             fs.unlinkSync(req.file.path);
         }
 
-        // Log to database
-        if (req.db) {
-            req.db.logOutgoingMessage({
-                sessionId,
-                recipient: jid,
-                messageType: 'image',
-                content: caption || '[image]',
-                messageId: result?.key?.id,
-                apiEndpoint: '/api/messages/send-image',
-                apiStatus: 200,
-                apiResponse: { success: true }
-            }).catch(err => req.logger.error('DB log error:', err));
-        }
-
         res.json({ success: true, message: 'Image sent', messageId: result?.key?.id });
     } catch (err) {
         // Ensure uploaded file is cleaned up even on error
         if (req.file && fs.existsSync(req.file.path)) {
             fs.unlinkSync(req.file.path);
-        }
-
-        // Log failed attempt to database
-        if (req.db) {
-            const jid = req.body.chatId?.includes('@') ? req.body.chatId : `${req.body.chatId}@s.whatsapp.net`;
-            req.db.logOutgoingMessage({
-                sessionId: req.body.sessionId,
-                recipient: jid,
-                messageType: 'image',
-                content: req.body.caption || '[image]',
-                apiEndpoint: '/api/messages/send-image',
-                apiStatus: 500,
-                error: err.message
-            }).catch(e => req.logger.error('DB log error:', e));
         }
 
         req.logger.error('Error sending image:', err);
@@ -256,39 +201,11 @@ router.post('/send-document', upload.single('document'), async (req, res) => {
             fs.unlinkSync(req.file.path);
         }
 
-        // Log to database
-        if (req.db) {
-            req.db.logOutgoingMessage({
-                sessionId,
-                recipient: jid,
-                messageType: 'document',
-                content: docFilename || '[document]',
-                messageId: result?.key?.id,
-                apiEndpoint: '/api/messages/send-document',
-                apiStatus: 200,
-                apiResponse: { success: true }
-            }).catch(err => req.logger.error('DB log error:', err));
-        }
-
         res.json({ success: true, message: 'Document sent', messageId: result?.key?.id });
     } catch (err) {
         // Ensure uploaded file is cleaned up even on error
         if (req.file && fs.existsSync(req.file.path)) {
             fs.unlinkSync(req.file.path);
-        }
-
-        // Log failed attempt to database
-        if (req.db) {
-            const jid = req.body.chatId?.includes('@') ? req.body.chatId : `${req.body.chatId}@s.whatsapp.net`;
-            req.db.logOutgoingMessage({
-                sessionId: req.body.sessionId,
-                recipient: jid,
-                messageType: 'document',
-                content: req.body.filename || '[document]',
-                apiEndpoint: '/api/messages/send-document',
-                apiStatus: 500,
-                error: err.message
-            }).catch(e => req.logger.error('DB log error:', e));
         }
 
         req.logger.error('Error sending document:', err);
@@ -352,27 +269,13 @@ router.get('/status/:messageId', async (req, res) => {
             return res.status(400).json({ success: false, message: 'messageId is required' });
         }
 
-        // Query from database
-        const message = await req.db.getMessageByMessageId(messageId);
-
-        if (!message) {
-            return res.status(404).json({
-                success: false,
-                message: 'Message not found',
-                messageId: messageId
-            });
-        }
-
-        res.json({
-            success: true,
-            messageId: message.message_id,
-            status: message.status,
-            sessionId: message.session_id,
-            recipient: message.recipient,
-            messageType: message.message_type,
-            createdAt: message.created_at,
-            updatedAt: message.updated_at
+        // Database query removed. Status not available.
+        return res.status(404).json({
+            success: false,
+            message: 'Status tracking is not available without database',
+            messageId: messageId
         });
+
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

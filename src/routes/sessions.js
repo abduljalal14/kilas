@@ -45,6 +45,27 @@ router.get('/:id/qr', async (req, res) => {
     }
 });
 
+// Reconnect existing session without deleting credentials
+router.post('/:id/reconnect', async (req, res) => {
+    try {
+        const session = await req.sessionManager.reconnectSession(req.params.id);
+        if (!session) {
+            return res.status(404).json({ success: false, message: 'Session not found' });
+        }
+
+        res.json({
+            success: true,
+            message: 'Session reconnect started',
+            data: {
+                id: session.sessionId,
+                status: session.status
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 // Create new session
 router.post('/create', async (req, res) => {
     const { sessionId } = req.body;

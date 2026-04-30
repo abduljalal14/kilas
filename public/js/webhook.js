@@ -8,9 +8,9 @@ window.formatTime = function (dateString) {
     if (!dateString) return '-';
     try {
         let date;
-        // Handle SQLite format: "YYYY-MM-DD HH:MM:SS" (stored as UTC)
+        // Handle Server format: "YYYY-MM-DD HH:MM:SS" (stored as UTC)
         if (typeof dateString === 'string' && !dateString.includes('T') && !dateString.includes('Z') && !dateString.includes('+')) {
-            // SQLite format without timezone - treat as UTC
+            // Server format without timezone - treat as UTC
             date = new Date(dateString.replace(' ', 'T') + 'Z');
         } else {
             date = new Date(dateString);

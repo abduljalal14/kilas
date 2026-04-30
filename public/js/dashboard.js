@@ -51,6 +51,7 @@ window.app = {
 
         this.bindEvents();
         this.loadSessions();
+        this.loadEventsFromStorage();
 
         // Populate stats periodically
         setInterval(this.updateStats.bind(this), 5000);
@@ -134,7 +135,7 @@ window.app = {
         },
 
         updateUI: async function () {
-            // Update Messages Today - fetch from SQLite
+            // Update Messages Today - fetch from server API
             try {
                 // Get today's date in configured timezone
                 const timezone = window.appTimezone || 'Asia/Jakarta';
@@ -144,11 +145,11 @@ window.app = {
                 if (response && response.success && response.data) {
                     // Count messages from today (considering timezone)
                     const todayCount = response.data.filter(msg => {
-                        // Parse SQLite UTC timestamp and convert to configured timezone
+                        // Parse server UTC timestamp and convert to configured timezone
                         let msgDate;
                         const timestamp = msg.created_at;
                         if (typeof timestamp === 'string' && !timestamp.includes('T') && !timestamp.includes('Z')) {
-                            // SQLite format - treat as UTC
+                            // Server format - treat as UTC
                             const utcDate = new Date(timestamp.replace(' ', 'T') + 'Z');
                             msgDate = utcDate.toLocaleDateString('en-CA', { timeZone: timezone });
                         } else {
@@ -165,7 +166,7 @@ window.app = {
                 console.error('Failed to load messages today:', e);
             }
 
-            // Update Webhook Success - fetch from SQLite
+            // Update Webhook Success - fetch from server
             try {
                 const response = await window.app.apiCall('/api/logs/webhook?limit=1000');
                 if (response && response.success && response.data) {
@@ -190,16 +191,16 @@ window.app = {
             if (!el) return;
 
             try {
-                // Fetch latest webhook from SQLite database
+                // Fetch latest webhook from server database
                 const response = await window.app.apiCall('/api/logs/webhook?limit=1');
                 if (response && response.success && response.data && response.data.length > 0) {
                     const latestWebhook = response.data[0];
 
-                    // Parse SQLite timestamp as UTC (same as webhookLogger and formatTime)
+                    // Parse server timestamp as UTC (same as webhookLogger and formatTime)
                     let webhookTime;
                     const timestamp = latestWebhook.created_at;
                     if (typeof timestamp === 'string' && !timestamp.includes('T') && !timestamp.includes('Z') && !timestamp.includes('+')) {
-                        // SQLite format without timezone - treat as UTC
+                        // Server format without timezone - treat as UTC
                         webhookTime = new Date(timestamp.replace(' ', 'T') + 'Z');
                     } else {
                         webhookTime = new Date(timestamp);
@@ -233,7 +234,7 @@ window.app = {
     },
 
     // Clear Live Events log
-    clearEventLog: function () {
+    clearEventLog: async function () {
         const eventLog = document.getElementById('monitorEventLog');
         if (eventLog) {
             eventLog.innerHTML = `
@@ -243,6 +244,12 @@ window.app = {
                 </div>
             `;
             sessionStorage.removeItem('kirimkan_events');
+            
+            try {
+                await this.apiCall('/api/logs/events', 'DELETE');
+            } catch (err) {
+                console.error('Failed to clear events from server:', err);
+            }
         }
     },
 
@@ -296,20 +303,7 @@ window.app = {
             document.getElementById('qrModal').classList.remove('visible');
         });
 
-        // Clear Logs - works with active tab
-        const btnClearLog = document.getElementById('btnClearCurrentLog');
-        if (btnClearLog) {
-            btnClearLog.addEventListener('click', () => {
-                const activeTab = document.querySelector('.events-tab-content.active');
-                if (activeTab.id === 'live-events') {
-                    document.getElementById('monitorEventLog').innerHTML = '';
-                    sessionStorage.removeItem('kirimkan_events');
-                } else if (activeTab.id === 'live-webhook') {
-                    document.getElementById('webhookLog').innerHTML = '';
-                    sessionStorage.removeItem('kirimkan_webhook_logs');
-                }
-            });
-        }
+
 
         // Quick Send
         const quickSendForm = document.getElementById('quickSendForm');
@@ -416,8 +410,8 @@ window.app = {
                             <span class="device-uptime">${formatUptime(session.connectedAt)}</span>
                         </div>
                         <div class="device-actions">
-                            <button class="btn btn-${session.status === 'connected' ? 'secondary' : 'success'} btn-sm" onclick="window.app.showQR('${session.id}')" style="flex: 1;">
-                                ${session.status === 'connected' ? 'Reconnect' : 'Scan QR Code'}
+                            <button class="btn btn-${session.status === 'connected' ? 'secondary' : 'success'} btn-sm" onclick="window.app.reconnectSession('${session.id}', ${session.status === 'logged_out'})" style="flex: 1;">
+                                ${session.status === 'connected' ? 'Reconnect' : (session.status === 'logged_out' ? 'Scan QR Code' : 'Reconnect')}
                             </button>
                             <button class="btn btn-danger btn-sm" onclick="window.app.deleteSession('${session.id}')" title="Delete">
                                 <i class="fas fa-trash"></i>
@@ -452,12 +446,12 @@ window.app = {
     createSession: async function (sessionId) {
         try {
             const res = await this.apiCall('/api/sessions/create', 'POST', { sessionId });
-            
+
             if (!res.success) {
                 this.showAlert(res.message || 'Failed to create session', 'error');
                 return;
             }
-            
+
             this.loadSessions();
             this.logEvent('info', 'System', `Session ${sessionId} created`);
             this.showAlert(`Session ${sessionId} created successfully`, 'success');
@@ -564,6 +558,38 @@ window.app = {
         this.logEvent('info', sessionId, 'Waiting for QR code... Session status: CONNECTING');
     },
 
+    reconnectSession: async function (sessionId, showQr = false) {
+        if (window.socket) {
+            window.socket.emit('subscribe:session', sessionId);
+        }
+
+        if (showQr) {
+            const modal = document.getElementById('qrModal');
+            const qrImg = document.getElementById('qrImage');
+            const spinner = document.getElementById('qrSpinner');
+
+            modal.classList.add('visible');
+            modal.dataset.session = sessionId;
+            qrImg.style.display = 'none';
+            qrImg.src = '';
+            spinner.style.display = 'block';
+        }
+
+        try {
+            const res = await this.apiCall(`/api/sessions/${encodeURIComponent(sessionId)}/reconnect`, 'POST');
+            if (res && res.success) {
+                this.showAlert(`Reconnect started for ${sessionId}`, 'success');
+                this.logEvent('info', sessionId, 'Reconnect requested');
+                this.loadSessions();
+                return;
+            }
+
+            this.showAlert('Failed to reconnect: ' + (res?.message || 'Unknown error'), 'error');
+        } catch (err) {
+            this.showAlert('Error reconnecting session: ' + err.message, 'error');
+        }
+    },
+
     updateStats: async function () {
         // Stats updated via loadSessions
     },
@@ -618,7 +644,7 @@ window.app = {
     loadEventsFromStorage: async function () {
         const log = document.getElementById('monitorEventLog');
 
-        // Try to load from SQLite API first
+        // Try to load from Server API first
         try {
             const response = await this.apiCall('/api/logs/events?limit=100');
             if (response && response.success && response.data && response.data.length > 0) {

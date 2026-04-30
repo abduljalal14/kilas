@@ -13,7 +13,7 @@ class WebhookLogger {
         this.storageKey = 'kirimkan_webhook_history';
         this.tableBody = document.getElementById('webhookHistoryTable');
 
-        // Load history from SQLite (server) first, fallback to localStorage
+        // Load history from server first, fallback to localStorage
         this.loadFromServer();
         this.initPageSizeDropdown();
         this.bindEvents();
@@ -132,7 +132,7 @@ class WebhookLogger {
     }
 
     /**
-     * Load history from server (SQLite)
+     * Load history from server
      */
     async loadFromServer() {
         try {
@@ -219,7 +219,7 @@ class WebhookLogger {
      * Clear all history (both local and server)
      */
     async clearHistory() {
-        // Clear from server (SQLite)
+        // Clear from server
         try {
             await window.app.apiCall('/api/logs/webhook', 'DELETE');
             console.log('Cleared webhook history from server');

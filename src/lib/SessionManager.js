@@ -3,11 +3,11 @@ const path = require('path');
 const BaileysHandler = require('./BaileysHandler');
 
 class SessionManager {
-    constructor(io, logger, webhookSender = null, db = null) {
+    constructor(io, logger, webhookSender = null, eventStore = null) {
         this.io = io;
         this.logger = logger;
         this.webhookSender = webhookSender;
-        this.db = db; // Database instance for event logging
+        this.eventStore = eventStore;
         this.sessions = new Map(); // Store active BaileysHandler instances
         this.sessionDir = process.env.SESSION_DIR || './sessions';
         this.sessionsFile = path.join(this.sessionDir, 'sessions.json');
@@ -54,18 +54,7 @@ class SessionManager {
         fs.writeFileSync(this.sessionsFile, JSON.stringify(sessionIds, null, 2));
     }
 
-    /**
-     * Set database for SessionManager and all existing handlers
-     * Called after database is initialized in server.js
-     */
-    setDatabase(db) {
-        this.db = db;
-        // Update all existing handlers
-        for (const [sessionId, handler] of this.sessions) {
-            handler.db = db;
-            this.logger.info(`Database wired for session: ${sessionId}`);
-        }
-    }
+
 
     async createSession(sessionId, startImmediately = true) {
         // Check if session already exists
@@ -75,8 +64,8 @@ class SessionManager {
             throw error;
         }
 
-        // Create new session with database for event logging
-        const handler = new BaileysHandler(sessionId, this.io, this.logger, this.webhookSender, this.db);
+        // Create new session
+        const handler = new BaileysHandler(sessionId, this.io, this.logger, this.webhookSender, this.eventStore);
         this.sessions.set(sessionId, handler);
 
         this.saveSessions();
@@ -93,6 +82,16 @@ class SessionManager {
 
     async getSession(sessionId) {
         return this.sessions.get(sessionId);
+    }
+
+    async reconnectSession(sessionId) {
+        const handler = this.sessions.get(sessionId);
+        if (!handler) {
+            return null;
+        }
+
+        await handler.restart();
+        return handler;
     }
 
     getAllSessions() {
