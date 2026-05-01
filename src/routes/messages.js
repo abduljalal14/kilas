@@ -19,6 +19,9 @@ const storage = multer.diskStorage({
     }
 });
 const upload = multer({ storage: storage });
+const MAX_TEXTING_TIME_MS = 60000;
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Helper to get session socket
 const getSocket = async (req, sessionId) => {
@@ -29,9 +32,17 @@ const getSocket = async (req, sessionId) => {
     return session.socket;
 };
 
+const getConnectedSession = async (req, sessionId) => {
+    const session = await req.sessionManager.getSession(sessionId);
+    if (!session || !session.socket) {
+        throw new Error('Session not found or not connected');
+    }
+    return session;
+};
+
 // Send Text Message
 router.post('/send-text', async (req, res) => {
-    const { sessionId, chatId, text, quotedMessageId } = req.body;
+    const { sessionId, chatId, text, quotedMessageId, texting_time } = req.body;
 
     // Validate required parameters
     if (!sessionId) {
@@ -44,10 +55,25 @@ router.post('/send-text', async (req, res) => {
         return res.status(400).json({ success: false, error: 'Message text is required' });
     }
 
+    let textingTimeMs = 0;
+    if (texting_time !== undefined && texting_time !== null && texting_time !== '') {
+        textingTimeMs = Number(texting_time);
+
+        if (!Number.isFinite(textingTimeMs) || textingTimeMs < 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'texting_time must be a positive number in milliseconds'
+            });
+        }
+
+        textingTimeMs = Math.min(Math.floor(textingTimeMs), MAX_TEXTING_TIME_MS);
+    }
+
     const jid = chatId.includes('@') ? chatId : `${chatId}@s.whatsapp.net`;
 
     try {
-        const socket = await getSocket(req, sessionId);
+        const session = await getConnectedSession(req, sessionId);
+        const socket = session.socket;
 
         const messageOptions = {};
 
@@ -62,7 +88,20 @@ router.post('/send-text', async (req, res) => {
             };
         }
 
-        const result = await socket.sendMessage(jid, { text }, messageOptions);
+        const readCount = await session.markChatRead(jid);
+        let result;
+        if (textingTimeMs > 0) {
+            await socket.sendPresenceUpdate('composing', jid);
+            await sleep(textingTimeMs);
+        }
+
+        try {
+            result = await socket.sendMessage(jid, { text }, messageOptions);
+        } finally {
+            if (textingTimeMs > 0) {
+                await socket.sendPresenceUpdate('paused', jid).catch(() => {});
+            }
+        }
 
         // Emit for real-time UI update
         req.io.emit('outgoing:message', {
@@ -74,10 +113,17 @@ router.post('/send-text', async (req, res) => {
             api_endpoint: '/api/messages/send-text',
             api_status: 200,
             status: 'sent',
+            texting_time: textingTimeMs,
+            read_before_send: readCount,
             created_at: new Date().toISOString()
         });
 
-        res.json({ success: true, message: 'Message sent', messageId: result?.key?.id });
+        res.json({
+            success: true,
+            message: 'Message sent',
+            messageId: result?.key?.id,
+            readBeforeSend: readCount
+        });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

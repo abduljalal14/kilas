@@ -97,10 +97,31 @@ server.listen(PORT, () => {
 });
 
 // Handle graceful shutdown
-process.on('SIGTERM', () => {
-    logger.info('SIGTERM signal received: closing HTTP server');
+let isShuttingDown = false;
+const shutdown = async (signal) => {
+    if (isShuttingDown) {
+        return;
+    }
+
+    isShuttingDown = true;
+    logger.info(`${signal} signal received: closing sessions and HTTP server`);
+
+    try {
+        await sessionManager.stopAllSessions();
+    } catch (err) {
+        logger.error('Error while stopping sessions', err);
+    }
+
     server.close(() => {
         logger.info('HTTP server closed');
         process.exit(0);
     });
-});
+
+    setTimeout(() => {
+        logger.warn('Forced shutdown after timeout');
+        process.exit(1);
+    }, 10000).unref();
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

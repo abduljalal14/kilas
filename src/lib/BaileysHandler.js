@@ -20,11 +20,15 @@ class BaileysHandler {
         this.qr = null;
         this.qrImage = null; // Store QR image (Data URL) for API retrieval
         this.contacts = {};
+        this.unreadMessageKeys = {};
         this.retryCount = 0;
         this.maxRetries = 5;
         this.isReconnecting = false;
         this.reconnectTimer = null;
         this.connectedAt = null; // Track when session connected for uptime
+        this.credsSaveChain = Promise.resolve();
+        this.sessionLockPath = path.join(process.env.SESSION_DIR || './sessions', `${sessionId}.lock`);
+        this.hasSessionLock = false;
 
         // Setup session directory
         this.sessionDir = path.join(process.env.SESSION_DIR || './sessions', sessionId);
@@ -86,6 +90,8 @@ class BaileysHandler {
         this.updateStatus('connecting');
 
         try {
+            this.acquireSessionLock();
+
             const { state, saveCreds } = await useMultiFileAuthState(this.sessionDir);
             const { version } = await fetchLatestBaileysVersion();
 
@@ -98,7 +104,8 @@ class BaileysHandler {
                 defaultQueryTimeoutMs: undefined, // Keep connection alive
                 keepAliveIntervalMs: 10000,
                 emitOwnEvents: true,
-                markOnlineOnConnect: true
+                markOnlineOnConnect: false,
+                shouldSyncHistoryMessage: () => false
             });
 
             // Handle Connection Update
@@ -186,7 +193,7 @@ class BaileysHandler {
             });
 
             // Handle Creds Update
-            this.socket.ev.on('creds.update', saveCreds);
+            this.socket.ev.on('creds.update', () => this.queueCredsSave(saveCreds));
 
             // Cache contacts from history sync so they can be reused by routes.
             this.socket.ev.on('messaging-history.set', async ({ contacts }) => {
@@ -234,6 +241,8 @@ class BaileysHandler {
                         }
 
                         if (!msg.key.fromMe) {
+                            this.trackUnreadMessage(msg);
+
                             // Try to save media
                             // const mediaPath = await this.mediaHandler.saveMedia(msg);
 
@@ -336,9 +345,136 @@ class BaileysHandler {
             // Removed unneeded event handlers (groups, calls) to reduce load
         } catch (err) {
             this.isReconnecting = false;
+            this.releaseSessionLock();
             this.globalLogger.error(`Error starting session ${this.sessionId}:`, err);
             this.updateStatus('error');
         }
+    }
+
+    acquireSessionLock() {
+        if (this.hasSessionLock) {
+            return;
+        }
+
+        const lockDir = path.dirname(this.sessionLockPath);
+        if (!fs.existsSync(lockDir)) {
+            fs.mkdirSync(lockDir, { recursive: true });
+        }
+
+        try {
+            fs.writeFileSync(this.sessionLockPath, JSON.stringify({
+                pid: process.pid,
+                sessionId: this.sessionId,
+                createdAt: new Date().toISOString()
+            }, null, 2), { flag: 'wx' });
+            this.hasSessionLock = true;
+        } catch (err) {
+            if (err.code !== 'EEXIST') {
+                throw err;
+            }
+
+            const existingLock = this.readExistingLock();
+            if (existingLock?.pid && !this.isProcessAlive(existingLock.pid)) {
+                this.globalLogger.warn(`Removing stale lock for session ${this.sessionId} from pid ${existingLock.pid}`);
+                fs.rmSync(this.sessionLockPath, { force: true });
+                fs.writeFileSync(this.sessionLockPath, JSON.stringify({
+                    pid: process.pid,
+                    sessionId: this.sessionId,
+                    createdAt: new Date().toISOString()
+                }, null, 2), { flag: 'wx' });
+                this.hasSessionLock = true;
+                return;
+            }
+
+            const pidText = existingLock?.pid ? ` by pid ${existingLock.pid}` : '';
+            const error = new Error(`Session ${this.sessionId} is already active${pidText}. Stop the other process before reconnecting.`);
+            error.code = 'SESSION_LOCKED';
+            throw error;
+        }
+    }
+
+    readExistingLock() {
+        try {
+            return JSON.parse(fs.readFileSync(this.sessionLockPath, 'utf8'));
+        } catch (err) {
+            return null;
+        }
+    }
+
+    isProcessAlive(pid) {
+        if (!Number.isInteger(pid) || pid <= 0) {
+            return false;
+        }
+
+        try {
+            process.kill(pid, 0);
+            return true;
+        } catch (err) {
+            return err.code === 'EPERM';
+        }
+    }
+
+    releaseSessionLock() {
+        if (!this.hasSessionLock) {
+            return;
+        }
+
+        try {
+            fs.rmSync(this.sessionLockPath, { force: true });
+        } catch (err) {
+            this.globalLogger.warn(`Failed to release session lock for ${this.sessionId}: ${err.message}`);
+        } finally {
+            this.hasSessionLock = false;
+        }
+    }
+
+    queueCredsSave(saveCreds) {
+        this.credsSaveChain = this.credsSaveChain
+            .then(() => saveCreds())
+            .catch((err) => {
+                this.globalLogger.error(`Failed to save credentials for ${this.sessionId}:`, err);
+            });
+
+        return this.credsSaveChain;
+    }
+
+    async flushCredsSave() {
+        try {
+            await this.credsSaveChain;
+        } catch (err) {
+            this.globalLogger.error(`Failed to flush credentials for ${this.sessionId}:`, err);
+        }
+    }
+
+    trackUnreadMessage(msg) {
+        const remoteJid = msg?.key?.remoteJid;
+        const messageId = msg?.key?.id;
+
+        if (!remoteJid || !messageId || msg.key.fromMe) {
+            return;
+        }
+
+        if (!this.unreadMessageKeys[remoteJid]) {
+            this.unreadMessageKeys[remoteJid] = [];
+        }
+
+        this.unreadMessageKeys[remoteJid].push(msg.key);
+        this.unreadMessageKeys[remoteJid] = this.unreadMessageKeys[remoteJid].slice(-50);
+    }
+
+    async markChatRead(jid) {
+        if (!this.socket) {
+            throw new Error('Session not connected');
+        }
+
+        const keys = this.unreadMessageKeys[jid] || [];
+        if (keys.length === 0) {
+            return 0;
+        }
+
+        await this.socket.readMessages(keys);
+        delete this.unreadMessageKeys[jid];
+        return keys.length;
     }
 
     updateStatus(status) {
@@ -362,13 +498,15 @@ class BaileysHandler {
         }
     }
 
-    stopSocket() {
+    async stopSocket() {
         this.isReconnecting = false;
         this.retryCount = 0;
         if (this.reconnectTimer) {
             clearTimeout(this.reconnectTimer);
             this.reconnectTimer = null;
         }
+
+        await this.flushCredsSave();
 
         if (this.socket) {
             if (this.socket.ev && typeof this.socket.ev.removeAllListeners === 'function') {
@@ -377,10 +515,12 @@ class BaileysHandler {
             this.socket.end(undefined);
             this.socket = null;
         }
+
+        this.releaseSessionLock();
     }
 
     async restart() {
-        this.stopSocket();
+        await this.stopSocket();
         this.updateStatus('reconnecting');
         await this.start();
     }
@@ -399,9 +539,11 @@ class BaileysHandler {
             } catch (err) {
                 // Ignore logout errors
             }
+            await this.flushCredsSave();
             this.socket.end(undefined);
             this.socket = null;
         }
+        this.releaseSessionLock();
         this.updateStatus('disconnected');
     }
 }

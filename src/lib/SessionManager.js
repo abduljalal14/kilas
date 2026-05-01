@@ -126,6 +126,16 @@ class SessionManager {
         return false;
     }
 
+    async stopAllSessions() {
+        const stops = [];
+        for (const [id, handler] of this.sessions) {
+            this.logger.info(`Stopping session: ${id}`);
+            stops.push(handler.stopSocket());
+        }
+
+        await Promise.allSettled(stops);
+    }
+
     /**
      * Set webhook URL for a session (legacy method)
      */
